@@ -626,11 +626,11 @@ class JournalController extends Controller
     public function mutationHistory($account, $startDate, $endDate, Request $request)
     {
         $journal = new Journal();
-        $startDate = $endDate ? Carbon::parse($endDate)->startOfDay() : Carbon::now()->startOfDay();
+        $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->startOfDay();
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
 
         $journal = new Journal();
-        $journals = $journal->with('debt.account', 'cred.account', 'warehouse', 'user')
+        $journals = $journal->with(['debt.account', 'cred.account', 'warehouse', 'user'])
             ->whereBetween('date_issued', [$startDate, $endDate])
             ->where(function ($query) use ($request) {
                 $query->where('invoice', 'like', '%' . $request->search . '%')

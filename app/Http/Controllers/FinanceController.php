@@ -214,8 +214,10 @@ class FinanceController extends Controller
             ->paginate(10)
             ->onEachSide(0);
 
-        $financeGroupByContactId = Finance::with('contact')->selectRaw('contact_id, SUM(bill_amount) as tagihan, SUM(payment_amount) as terbayar, SUM(bill_amount) - SUM(payment_amount) as sisa, finance_type')
-            ->groupBy('contact_id', 'finance_type')->get();
+        $financeGroupByContactId = Finance::with('contact')
+            ->selectRaw('contact_id, SUM(bill_amount) as tagihan, SUM(payment_amount) as terbayar, SUM(bill_amount) - SUM(payment_amount) as sisa, finance_type')
+            ->groupBy('contact_id', 'finance_type')
+            ->get();
 
         $data = [
             'finance' => $finance,
