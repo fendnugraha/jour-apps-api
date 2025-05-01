@@ -660,40 +660,18 @@ class ChartOfAccountController extends Controller
         $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->startOfDay();
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
 
-        $transactions = $journal->selectRaw('debt_code, cred_code, SUM(amount) as total, warehouse_id')
-            ->whereBetween('date_issued', [Carbon::create(0000, 1, 1, 0, 0, 0)->startOfDay(), $endDate])
-            // ->where('warehouse_id', $warehouse)
-            ->groupBy('debt_code', 'cred_code', 'warehouse_id')
-            ->get();
-
-        $chartOfAccounts = ChartOfAccount::with(['account'])->where(fn($query) => $warehouse == "all" ? $query : $query->where('warehouse_id', $warehouse))->get();
-
-        foreach ($chartOfAccounts as $value) {
-            $debit = $transactions->where('debt_code', $value->id)->sum('total');
-            $credit = $transactions->where('cred_code', $value->id)->sum('total');
-
-            $value->balance = ($value->account->status == "D")
-                ? ($value->st_balance + $debit - $credit)
-                : ($value->st_balance + $credit - $debit);
-        }
-
-        $trxForSalesCount = $journal->whereBetween('date_issued', [$startDate, $endDate])
-            ->where(fn($query) => $warehouse == "all" ?
-                $query : $query->where('warehouse_id', $warehouse))
-            ->get();
-
+        $journalCount = $journal->journalCount(Carbon::create(0000, 1, 1)->endOfDay(), $endDate);
         $dailyReport = [
-            'totalCash' => $chartOfAccounts->where('account_id', 1)->sum('balance'),
-            'totalBank' => $chartOfAccounts->where('account_id', 2)->sum('balance'),
-            'totalTransfer' => $trxForSalesCount->where('trx_type', 'Transfer Uang')->sum('amount'),
-            'totalCashWithdrawal' => $trxForSalesCount->where('trx_type', 'Tarik Tunai')->sum('amount'),
-            'totalCashDeposit' => $trxForSalesCount->where('trx_type', 'Deposit')->sum('amount'),
-            'totalVoucher' => $trxForSalesCount->where('trx_type', 'Voucher & SP')->sum('amount'),
-            'totalAccessories' => $trxForSalesCount->where('trx_type', 'Accessories')->sum('amount'),
-            'totalExpense' => $trxForSalesCount->where('trx_type', 'Pengeluaran')->sum('fee_amount'),
-            'totalFee' => $trxForSalesCount->where('fee_amount', '>', 0)->sum('fee_amount'),
-            'profit' => $trxForSalesCount->sum('fee_amount'),
-            'salesCount' => $trxForSalesCount->whereIn('trx_type', ['Transfer Uang', 'Tarik Tunai', 'Deposit', 'Voucher & SP'])->count(),
+            'assets' => $journalCount['assets']->flatten()->sum('balance'),
+            'liabilities' => $journalCount['liabilities']->flatten()->sum('balance'),
+            'equity' => $journalCount['equity']->flatten()->sum('balance'),
+            'cash' => $journalCount['cash']->flatten()->sum('balance'),
+            'bank' => $journalCount['bank']->flatten()->sum('balance'),
+            'receivable' => $journalCount['receivable']->flatten()->sum('balance'),
+            'payable' => $journalCount['payable']->flatten()->sum('balance'),
+            'revenue' => $journalCount['revenue']->flatten()->sum('balance'),
+            'cost' => $journalCount['cost']->flatten()->sum('balance'),
+            'expense' => $journalCount['expense']->flatten()->sum('balance'),
         ];
 
         return new AccountResource($dailyReport, true, "Successfully fetched chart of accounts");

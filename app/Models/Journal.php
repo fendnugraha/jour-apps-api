@@ -217,7 +217,7 @@ class Journal extends Model
         return $result;
     }
 
-    public function journalCount($startDate, $endDate)
+    public function journalCount($startDate, $endDate, $warehouse = "all")
     {
         $journal = new Journal();
         $transactions = $journal->with(['debt', 'cred'])
@@ -226,7 +226,7 @@ class Journal extends Model
             ->groupBy('debt_code', 'cred_code')
             ->get();
 
-        $chartOfAccounts = ChartOfAccount::with(['account'])->get();
+        $chartOfAccounts = ChartOfAccount::with(['account'])->where(fn($query) => $warehouse == "all" ? $query : $query->where('warehouse_id', $warehouse))->get();
 
         foreach ($chartOfAccounts as $value) {
             $debit = $transactions->where('debt_code', $value->id)->sum('total');
@@ -241,6 +241,10 @@ class Journal extends Model
         $assets = $chartOfAccounts->whereIn('account_id', \range(1, 18))->groupBy('account_id');
         $liabilities = $chartOfAccounts->whereIn('account_id', \range(19, 25))->groupBy('account_id');
         $equity = $chartOfAccounts->where('account_id', 26)->groupBy('account_id');
+        $cash = $chartOfAccounts->where('account_id', 1)->groupBy('account_id');
+        $bank = $chartOfAccounts->where('account_id', 2)->groupBy('account_id');
+        $receivable = $chartOfAccounts->whereIn('account_id', [4, 5])->groupBy('account_id');
+        $payable = $chartOfAccounts->whereIn('account_id', \range(19, 25))->groupBy('account_id');
 
         return [
             'revenue' => $revenue,
@@ -248,7 +252,11 @@ class Journal extends Model
             'expense' => $expense,
             'assets' => $assets,
             'liabilities' => $liabilities,
-            'equity' => $equity
+            'equity' => $equity,
+            'cash' => $cash,
+            'bank' => $bank,
+            'receivable' => $receivable,
+            'payable' => $payable
         ];
     }
 }
