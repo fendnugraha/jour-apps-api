@@ -34,7 +34,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::get('get-cash-bank-by-warehouse/{warehouse}', [ChartOfAccountController::class, 'getCashAndBankByWarehouse']);
     Route::get('get-expense-accounts', [ChartOfAccountController::class, 'getExpenses']);
     Route::get('get-cash-bank-balance/{warehouse}/{endDate}', [ChartOfAccountController::class, 'getCashBankBalance']);
-    Route::get('daily-dashboard/{warehouse}/{startDate}/{endDate}', [ChartOfAccountController::class, 'dailyDashboard']);
+    Route::get('daily-dashboard/{warehouse}/{endDate}', [ChartOfAccountController::class, 'dailyDashboard']);
     Route::get('balance-sheet-report/{startDate}/{endDate}', [ChartOfAccountController::class, 'balanceSheetReport']);
     Route::get('profit-loss-report/{startDate}/{endDate}', [ChartOfAccountController::class, 'profitLossReport']);
     Route::get('cash-flow-report/{startDate}/{endDate}', [ChartOfAccountController::class, 'cashFlowReport']);

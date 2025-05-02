@@ -653,16 +653,18 @@ class ChartOfAccountController extends Controller
         return new AccountResource($chartOfAccounts, true, "Successfully fetched chart of accounts");
     }
 
-    public function dailyDashboard($warehouse, $startDate, $endDate)
+    public function dailyDashboard($warehouse, $endDate)
     {
         $journal = new Journal();
 
-        $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->startOfDay();
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
+        $netProfitCurrentMonth = $journal->profitLossCount(Carbon::parse($endDate)->startOfMonth(), Carbon::parse($endDate)->endOfMonth());
 
         $journalCount = $journal->journalCount(Carbon::create(0000, 1, 1)->endOfDay(), $endDate);
         $dailyReport = [
             'assets' => $journalCount['assets']->flatten()->sum('balance'),
+            'currentAssets' => $journalCount['currentAssets']->flatten()->sum('balance'),
+            'inventory' => $journalCount['inventory']->flatten()->sum('balance'),
             'liabilities' => $journalCount['liabilities']->flatten()->sum('balance'),
             'equity' => $journalCount['equity']->flatten()->sum('balance'),
             'cash' => $journalCount['cash']->flatten()->sum('balance'),
@@ -672,6 +674,7 @@ class ChartOfAccountController extends Controller
             'revenue' => $journalCount['revenue']->flatten()->sum('balance'),
             'cost' => $journalCount['cost']->flatten()->sum('balance'),
             'expense' => $journalCount['expense']->flatten()->sum('balance'),
+            'netProfitCurrentMonth' => $netProfitCurrentMonth,
         ];
 
         return new AccountResource($dailyReport, true, "Successfully fetched chart of accounts");

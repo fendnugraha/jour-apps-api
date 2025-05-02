@@ -142,7 +142,7 @@ class JournalController extends Controller
         $log = new LogActivity();
         DB::beginTransaction();
         try {
-            $journal->delete();
+            $journal->where('invoice', $journal->invoice)->delete();
             if ($transactionsExist) {
                 $journal->transaction()->delete();
             }
@@ -157,7 +157,7 @@ class JournalController extends Controller
             DB::commit();
             return response()->json([
                 'success' => true,
-                'message' => 'Journal deleted successfully'
+                'message' => 'Journal with ID: ' . $journal->id . ' deleted successfully'
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -413,7 +413,7 @@ class JournalController extends Controller
                 'invoice' => $invoice,  // Menggunakan metode statis untuk invoice
                 'date_issued' => $request->date_issued ?? now(),
                 'debt_code' => $request->debt_code,
-                'cred_code' => 18,
+                'cred_code' => 13,
                 'amount' => $request->sale,
                 'fee_amount' => 0,
                 'trx_type' => 'Penjualan Barang',
@@ -425,8 +425,8 @@ class JournalController extends Controller
             $journal->create([
                 'invoice' => $invoice,  // Menggunakan metode statis untuk invoice
                 'date_issued' => $request->date_issued ?? now(),
-                'debt_code' => 23,
-                'cred_code' => 10,
+                'debt_code' => 14,
+                'cred_code' => 6,
                 'amount' => $request->cost,
                 'fee_amount' => 0,
                 'trx_type' => 'Penjualan Barang',
@@ -457,7 +457,7 @@ class JournalController extends Controller
         $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->startOfDay();
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
 
-        $journals = Journal::with(['debt', 'cred', 'transaction.product'])
+        $journals = Journal::with(['debt', 'cred', 'transaction.product', 'user'])
             ->whereBetween('created_at', [$startDate, $endDate])
             ->orderBy('created_at', 'desc')
             ->get();

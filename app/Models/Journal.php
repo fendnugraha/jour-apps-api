@@ -188,13 +188,6 @@ class Journal extends Model
         return ($includeEquity ? $initBalance : 0) + $assets - $liabilities - ($includeEquity ? $equity : 0);
     }
 
-    public function profitLossCount($start_date, $end_date)
-    {
-        $journalCount = $this->journalCount($start_date, $end_date);
-
-        return $journalCount['revenue']->sum('balance') - $journalCount['cost']->sum('balance') - $journalCount['expense']->sum('balance');
-    }
-
     public function cashflowCount($start_date, $end_date)
     {
         $cashAccount = ChartOfAccount::all();
@@ -239,6 +232,8 @@ class Journal extends Model
         $cost = $chartOfAccounts->whereIn('account_id', \range(31, 32))->groupBy('account_id');
         $expense = $chartOfAccounts->whereIn('account_id', \range(33, 45))->groupBy('account_id');
         $assets = $chartOfAccounts->whereIn('account_id', \range(1, 18))->groupBy('account_id');
+        $currentAssets = $chartOfAccounts->whereIn('account_id', \range(1, 9))->groupBy('account_id');
+        $inventory = $chartOfAccounts->whereIn('account_id', [6, 7])->groupBy('account_id');
         $liabilities = $chartOfAccounts->whereIn('account_id', \range(19, 25))->groupBy('account_id');
         $equity = $chartOfAccounts->where('account_id', 26)->groupBy('account_id');
         $cash = $chartOfAccounts->where('account_id', 1)->groupBy('account_id');
@@ -251,6 +246,8 @@ class Journal extends Model
             'cost' => $cost,
             'expense' => $expense,
             'assets' => $assets,
+            'currentAssets' => $currentAssets,
+            'inventory' => $inventory,
             'liabilities' => $liabilities,
             'equity' => $equity,
             'cash' => $cash,
@@ -258,5 +255,12 @@ class Journal extends Model
             'receivable' => $receivable,
             'payable' => $payable
         ];
+    }
+
+    public function profitLossCount($start_date, $end_date)
+    {
+        $journalCount = $this->journalCount($start_date, $end_date);
+
+        return $journalCount['revenue']->flatten()->sum('balance') - $journalCount['cost']->flatten()->sum('balance') - $journalCount['expense']->flatten()->sum('balance');
     }
 }
