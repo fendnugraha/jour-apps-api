@@ -642,7 +642,7 @@ class JournalController extends Controller
                     ->orWhere('cred_code', $account);
             })
             ->orderBy('date_issued', 'desc')
-            ->paginate(10, ['*'], 'mutationHistory');
+            ->paginate($request->per_page, ['*'], 'mutationHistory');
 
         $total = $journal->with('debt.account', 'cred.account', 'warehouse', 'user')->where('debt_code', $account)
             ->whereBetween('date_issued', [$startDate, $endDate])
