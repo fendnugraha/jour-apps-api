@@ -8,6 +8,7 @@ use App\Models\Warehouse;
 use App\Models\Transaction;
 use App\Models\ChartOfAccount;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Model;
 
 class Journal extends Model
@@ -145,28 +146,26 @@ class Journal extends Model
 
     public static function endBalanceBetweenDate($account_code, $start_date, $end_date)
     {
-        $initBalance = ChartOfAccount::with('account')->where('id', $account_code)->first();
+        $initBalance = ChartOfAccount::with('account')->find($account_code);
 
-        $transactions = self::where(function ($query) use ($account_code) {
-            $query
-                ->where('debt_code', $account_code)
-                ->orWhere('cred_code', $account_code);
-        })
-            ->whereBetween('date_issued', [
-                $start_date,
-                $end_date,
-            ])
+        if (!$initBalance || !$initBalance->account) {
+            Log::error('Account not found: ' . $account_code);
+            return 0; // atau lempar error/logging
+        }
+
+        $journals = Journal::selectRaw('debt_code, cred_code, SUM(amount) as total')
+            ->whereBetween('date_issued', [$start_date, $end_date])
+            ->groupBy('debt_code', 'cred_code')
             ->get();
 
-        $debit = $transactions->where('debt_code', $account_code)->sum('amount');
-        $credit = $transactions->where('cred_code', $account_code)->sum('amount');
+        $debit = $journals->where('debt_code', $account_code)->sum('total');
+        $credit = $journals->where('cred_code', $account_code)->sum('total');
 
-        if ($initBalance->account->status == "D") {
-            return $initBalance->st_balance + $debit - $credit;
-        } else {
-            return $initBalance->st_balance + $credit - $debit;
-        }
+        return $initBalance->account->status === 'D'
+            ? $initBalance->st_balance + $debit - $credit
+            : $initBalance->st_balance + $credit - $debit;
     }
+
 
     public static function equityCount($end_date, $includeEquity = true)
     {
