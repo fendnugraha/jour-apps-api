@@ -14,6 +14,11 @@ class Finance extends Model
         return $this->belongsTo(Contact::class);
     }
 
+    public function journal()
+    {
+        return $this->hasMany(Journal::class);
+    }
+
     public function account()
     {
         return $this->belongsTo(ChartOfAccount::class, 'account_code', 'id');

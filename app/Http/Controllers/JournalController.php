@@ -30,7 +30,7 @@ class JournalController extends Controller
 
     public function index()
     {
-        $journals = Journal::with(['debt', 'cred'])->orderBy('created_at', 'desc')->paginate(10, ['*'], 'journalPage')->onEachSide(0)->withQueryString();
+        $journals = Journal::with(['debt', 'cred', 'finance.contact'])->orderBy('created_at', 'desc')->paginate(10, ['*'], 'journalPage')->onEachSide(0)->withQueryString();
         return new AccountResource($journals, true, "Successfully fetched journals");
     }
 
@@ -457,7 +457,7 @@ class JournalController extends Controller
         $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->startOfDay();
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
 
-        $journals = Journal::with(['debt', 'cred', 'transaction.product', 'user'])
+        $journals = Journal::with(['debt', 'cred', 'transaction.product', 'user', 'finance.contact'])
             ->whereBetween('created_at', [$startDate, $endDate])
             ->orderBy('created_at', 'desc')
             ->get();

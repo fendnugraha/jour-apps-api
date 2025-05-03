@@ -90,6 +90,11 @@ class Journal extends Model
         return $this->hasMany(Transaction::class, 'invoice', 'invoice');
     }
 
+    public function finance()
+    {
+        return $this->hasMany(Finance::class, 'invoice', 'invoice');
+    }
+
     public static function invoice_journal()
     {
         // Ambil nilai MAX(RIGHT(invoice, 7)) untuk user saat ini dan hari ini
