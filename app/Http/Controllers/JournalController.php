@@ -192,7 +192,7 @@ class JournalController extends Controller
         try {
             $journal->create([
                 'invoice' => $journal->invoice_journal(),  // Menggunakan metode statis untuk invoice
-                'date_issued' => now(),
+                'date_issued' => $request->dateIssued ?? now(),
                 'debt_code' => $request->debt_code,
                 'cred_code' => $request->cred_code,
                 'amount' => $request->amount,
@@ -241,7 +241,7 @@ class JournalController extends Controller
         try {
             $journal->create([
                 'invoice' => $invoice,  // Menggunakan metode statis untuk invoice
-                'date_issued' => now(),
+                'date_issued' => $request->dateIssued ?? now(),
                 'debt_code' => 9,
                 'cred_code' => 9,
                 'amount' => $modal,
@@ -253,7 +253,7 @@ class JournalController extends Controller
             ]);
 
             $sale = new Transaction([
-                'date_issued' => now(),
+                'date_issued' => $request->dateIssued ?? now(),
                 'invoice' => $invoice,
                 'product_id' => $request->product_id,
                 'quantity' => -$request->qty,
@@ -305,7 +305,7 @@ class JournalController extends Controller
         try {
             $journal->create([
                 'invoice' => $invoice,  // Menggunakan metode statis untuk invoice
-                'date_issued' => now(),
+                'date_issued' => $request->dateIssued ?? now(),
                 'debt_code' => 9,
                 'cred_code' => 9,
                 'amount' => $cost,
@@ -353,7 +353,7 @@ class JournalController extends Controller
         try {
             $journal->create([
                 'invoice' => $journal->invoice_journal(),  // Menggunakan metode statis untuk invoice
-                'date_issued' => now(),
+                'date_issued' => $request->dateIssued ?? now(),
                 'debt_code' => $request->debt_code,
                 'cred_code' => $request->cred_code,
                 'amount' => $request->amount,
@@ -367,7 +367,7 @@ class JournalController extends Controller
             if ($request->admin_fee > 0) {
                 $journal->create([
                     'invoice' => $journal->invoice_journal(),  // Menggunakan metode statis untuk invoice
-                    'date_issued' => now(),
+                    'date_issued' => $request->dateIssued ?? now(),
                     'debt_code' => 49,
                     'cred_code' => $request->cred_code,
                     'amount' => $request->admin_fee,
