@@ -641,14 +641,14 @@ class JournalController extends Controller
                 $query->where('debt_code', $account)
                     ->orWhere('cred_code', $account);
             })
-            ->orderBy('date_issued', 'asc')
+            ->orderBy('date_issued', 'desc')
             ->paginate(10, ['*'], 'mutationHistory');
 
         $total = $journal->with('debt.account', 'cred.account', 'warehouse', 'user')->where('debt_code', $account)
             ->whereBetween('date_issued', [$startDate, $endDate])
             ->orWhere('cred_code', $account)
             ->WhereBetween('date_issued', [$startDate, $endDate])
-            ->orderBy('date_issued', 'asc')
+            ->orderBy('date_issued', 'desc')
             ->get();
 
         $initBalanceDate = Carbon::parse($startDate)->subDay(1)->endOfDay();
