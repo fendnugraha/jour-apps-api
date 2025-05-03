@@ -255,8 +255,11 @@ class FinanceController extends Controller
             'contact_id' => 'required|exists:contacts,id',
             'invoice' => 'required|exists:finances,invoice',
             'account_id' => 'required|exists:chart_of_accounts,id',
-            'amount' => 'required|numeric|min:0|max:' . $sisa,
+            'amount' => 'required|numeric|min:1|max:' . $sisa,
             'notes' => 'required',
+        ], [
+            'amount.max' => 'Jumlah pembayaran melebihi sisa tagihan ' . number_format($sisa, 0, ',', '.'),
+            'notes.required' => 'Catatan pembayaran harus diisi'
         ]);
 
         $payment_nth = Finance::selectRaw('MAX(payment_nth) as payment_nth')->where('invoice', $request->invoice)->first()->payment_nth + 1;

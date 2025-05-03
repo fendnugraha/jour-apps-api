@@ -411,7 +411,7 @@ class JournalController extends Controller
         try {
             $journal->create([
                 'invoice' => $invoice,  // Menggunakan metode statis untuk invoice
-                'date_issued' => $request->date_issued ?? now(),
+                'date_issued' => $request->dateIssued ?? now(),
                 'debt_code' => $request->debt_code,
                 'cred_code' => 13,
                 'amount' => $request->sale,
@@ -424,7 +424,7 @@ class JournalController extends Controller
 
             $journal->create([
                 'invoice' => $invoice,  // Menggunakan metode statis untuk invoice
-                'date_issued' => $request->date_issued ?? now(),
+                'date_issued' => $request->dateIssued ?? now(),
                 'debt_code' => 14,
                 'cred_code' => 6,
                 'amount' => $request->cost,
