@@ -329,10 +329,15 @@ class ChartOfAccountController extends Controller
         $equityGrowthRate = $lastMonthEquity > 0
             ? (($currentEquity - $lastMonthEquity) / $lastMonthEquity) * 100
             : 0;
+        $equityGrowthAmount = $currentEquity - $lastMonthEquity;
 
         $assetsGrowthRate = $journalCount['assets']->flatten()->sum('balance') > 0
             ? (($journalCount['assets']->flatten()->sum('balance') - $journalCountLastMonth['assets']->flatten()->sum('balance')) / $journalCountLastMonth['assets']->flatten()->sum('balance')) * 100
             : 0;
+
+        $assetsGrowthAmount = $journalCount['assets']->flatten()->sum('balance') - $journalCountLastMonth['assets']->flatten()->sum('balance');
+
+        $liabilitiesGrowthAmount = $journalCount['liabilities']->flatten()->sum('balance') - $journalCountLastMonth['liabilities']->flatten()->sum('balance');
 
         $liabilitiesGrowthRate = $journalCount['liabilities']->flatten()->sum('balance') > 0
             ? (($journalCount['liabilities']->flatten()->sum('balance') - $journalCountLastMonth['liabilities']->flatten()->sum('balance')) / $journalCountLastMonth['liabilities']->flatten()->sum('balance')) * 100
@@ -397,9 +402,18 @@ class ChartOfAccountController extends Controller
                     ->toArray()
             ],
             'profitloss' => $profitLoss,
-            'equityGrowthRate' => $equityGrowthRate,
-            'assetsGrowthRate' => $assetsGrowthRate,
-            'liabilitiesGrowthRate' => $liabilitiesGrowthRate
+            'equityGrowthRate' => [
+                'amount' => $equityGrowthAmount,
+                'rate' => $equityGrowthRate
+            ],
+            'assetsGrowthRate' => [
+                'amount' => $assetsGrowthAmount,
+                'rate' => $assetsGrowthRate
+            ],
+            'liabilitiesGrowthRate' => [
+                'amount' => $liabilitiesGrowthAmount,
+                'rate' => $liabilitiesGrowthRate
+            ]
         ];
 
         return response()->json([
