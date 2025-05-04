@@ -241,7 +241,6 @@ class ChartOfAccountController extends Controller
         $journal = new Journal();
 
         $journalCount = $journal->journalCount($startDate, $endDate);
-        $profitLoss = $journalCount['revenue']->flatten()->sum('balance') - $journalCount['cost']->flatten()->sum('balance') - $journalCount['expense']->flatten()->sum('balance');
 
         $profitloss = [
             'revenue' => [
@@ -313,12 +312,31 @@ class ChartOfAccountController extends Controller
     public function balanceSheetReport($startDate, $endDate)
     {
         $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->startOfDay();
+        $lastMonth = Carbon::parse($endDate)->subMonths(1)->endOfDay();
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
 
         $journal = new Journal();
 
-        $journalCount = $journal->journalCount(Carbon::create(0000, 1, 1)->endOfDay(), $endDate);
+        $journalCount = $journal->journalCount(Carbon::create(1000, 1, 1)->endOfDay(), $endDate);
         $profitLoss = $journalCount['revenue']->flatten()->sum('balance') - $journalCount['cost']->flatten()->sum('balance') - $journalCount['expense']->flatten()->sum('balance');
+
+        $journalCountLastMonth = $journal->journalCount(Carbon::create(1000, 1, 1)->endOfDay(), $lastMonth);
+        $profitLossLastMonth = $journalCountLastMonth['revenue']->flatten()->sum('balance') - $journalCountLastMonth['cost']->flatten()->sum('balance') - $journalCountLastMonth['expense']->flatten()->sum('balance');
+
+        $lastMonthEquity = $journalCountLastMonth['equity']->flatten()->sum('balance') + $profitLossLastMonth;
+        $currentEquity = $journalCount['equity']->flatten()->sum('balance') + $profitLoss;
+
+        $equityGrowthRate = $lastMonthEquity > 0
+            ? (($currentEquity - $lastMonthEquity) / $lastMonthEquity) * 100
+            : 0;
+
+        $assetsGrowthRate = $journalCount['assets']->flatten()->sum('balance') > 0
+            ? (($journalCount['assets']->flatten()->sum('balance') - $journalCountLastMonth['assets']->flatten()->sum('balance')) / $journalCountLastMonth['assets']->flatten()->sum('balance')) * 100
+            : 0;
+
+        $liabilitiesGrowthRate = $journalCount['liabilities']->flatten()->sum('balance') > 0
+            ? (($journalCount['liabilities']->flatten()->sum('balance') - $journalCountLastMonth['liabilities']->flatten()->sum('balance')) / $journalCountLastMonth['liabilities']->flatten()->sum('balance')) * 100
+            : 0;
 
         $balanceSheet = [
             'assets' => [
@@ -378,7 +396,10 @@ class ChartOfAccountController extends Controller
                     ->values()
                     ->toArray()
             ],
-            'profitloss' => $profitLoss
+            'profitloss' => $profitLoss,
+            'equityGrowthRate' => $equityGrowthRate,
+            'assetsGrowthRate' => $assetsGrowthRate,
+            'liabilitiesGrowthRate' => $liabilitiesGrowthRate
         ];
 
         return response()->json([
@@ -660,7 +681,7 @@ class ChartOfAccountController extends Controller
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
         $netProfitCurrentMonth = $journal->profitLossCount(Carbon::parse($endDate)->startOfMonth(), Carbon::parse($endDate)->endOfMonth());
 
-        $journalCount = $journal->journalCount(Carbon::create(0000, 1, 1)->endOfDay(), $endDate);
+        $journalCount = $journal->journalCount(Carbon::create(1000, 1, 1)->endOfDay(), $endDate);
         $dailyReport = [
             'assets' => $journalCount['assets']->flatten()->sum('balance'),
             'currentAssets' => $journalCount['currentAssets']->flatten()->sum('balance'),

@@ -402,6 +402,7 @@ class JournalController extends Controller
             'debt_code' => 'required|exists:chart_of_accounts,id',
             'cost' => 'required|numeric',
             'sale' => 'required|numeric',
+            'fee_customer' => 'numeric|min:0',
         ]);
 
         $invoice = Journal::invoice_journal();
