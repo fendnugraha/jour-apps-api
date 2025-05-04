@@ -435,6 +435,22 @@ class JournalController extends Controller
                 'warehouse_id' => auth()->user()->role->warehouse_id
             ]);
 
+            if ($request->fee_customer > 0) {
+
+                $journal->create([
+                    'invoice' => $invoice,  // Menggunakan metode statis untuk invoice
+                    'date_issued' => $request->dateIssued ?? now(),
+                    'debt_code' => 62,
+                    'cred_code' => 9,
+                    'amount' => $request->fee_customer,
+                    'fee_amount' => 0,
+                    'trx_type' => 'Penjualan Barang',
+                    'description' => $description,
+                    'user_id' => auth()->user()->id,
+                    'warehouse_id' => auth()->user()->role->warehouse_id
+                ]);
+            }
+
             DB::commit();
 
             return response()->json([

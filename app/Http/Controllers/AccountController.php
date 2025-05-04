@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Account;
 use Illuminate\Http\Request;
+use App\Http\Resources\AccountResource;
 
 class AccountController extends Controller
 {
@@ -11,7 +13,8 @@ class AccountController extends Controller
      */
     public function index()
     {
-        //
+        $accounts = Account::all();
+        return new AccountResource($accounts, true, "Successfully fetched accounts");
     }
 
     /**
