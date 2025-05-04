@@ -176,7 +176,7 @@ class JournalController extends Controller
         $request->validate([
             'debt_code' => 'required|exists:chart_of_accounts,id',
             'cred_code' => 'required|exists:chart_of_accounts,id',
-            'amount' => 'required|numeric|min:0',
+            'amount' => 'required|numeric',
             'trx_type' => 'required',
             'fee_amount' => 'required|numeric|min:0',
             'custName' => 'required|regex:/^[a-zA-Z0-9\s]+$/|min:3|max:255',
