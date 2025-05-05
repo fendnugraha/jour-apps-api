@@ -718,6 +718,7 @@ class JournalController extends Controller
         $transactions = $journal->selectRaw('debt_code, cred_code, SUM(amount) as total, DATE(date_issued) as day')
             ->whereBetween('date_issued', [$startDate, $endDate])
             ->groupBy('debt_code', 'cred_code', 'day')
+            ->orderBy('day', 'asc')
             ->get();
 
         $revenueAccountIds = ChartOfAccount::whereIn('account_id', \range(27, 30))->pluck('id')->toArray();

@@ -70,7 +70,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             AccountSeeder::class,
-            ChartOfAccountSeeder::class,
+            // ChartOfAccountSeeder::class,
             // ProductSeeder::class
         ]);
     }
