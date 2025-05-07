@@ -311,99 +311,116 @@ class ChartOfAccountController extends Controller
 
     public function balanceSheetReport($startDate, $endDate)
     {
-        $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : now()->startOfDay();
+        $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->startOfDay();
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : now()->endOfDay();
 
         // Bulan lalu: akhir bulan lalu
-        $lastMonthEnd = $endDate->copy()->subMonthNoOverflow()->endOfMonth();
+        $lastMonth = $endDate->copy()->subMonthNoOverflow()->endOfMonth();
 
         $journal = new Journal();
 
-        // Ambil data sampai sekarang
-        $journalCount = $journal->journalCount(Carbon::create(1000, 1, 1)->endOfDay(), $endDate);
-        $journalCountLastMonth = $journal->journalCount(Carbon::create(1000, 1, 1)->endOfDay(), $lastMonthEnd);
-
-        // Fungsi untuk hitung profit/loss
         $calculateProfitLoss = function ($data) {
             return $data['revenue']->flatten()->sum('balance')
                 - $data['cost']->flatten()->sum('balance')
                 - $data['expense']->flatten()->sum('balance');
         };
 
-        $profitLoss = $calculateProfitLoss($journalCount);
-        $profitLossLastMonth = $calculateProfitLoss($journalCountLastMonth);
-
-        // Hitung equity
-        $currentEquity = $journalCount['equity']->flatten()->sum('balance');
-        $lastMonthEquity = $journalCountLastMonth['equity']->flatten()->sum('balance') + $profitLossLastMonth - $profitLoss;
-
-        // Helper untuk growth rate
-        $growthRate = function ($now, $last) {
+        $calculateGrowthRate = function ($now, $last) {
             return $last > 0 ? (($now - $last) / $last) * 100 : 0;
         };
 
-        // Assets
-        $currentAssets = $journalCount['assets']->flatten()->sum('balance');
-        $lastAssets = $journalCountLastMonth['assets']->flatten()->sum('balance');
+        $journalCount = $journal->journalCount(Carbon::create(1000, 1, 1)->endOfDay(), $endDate);
+        $profitLoss = $calculateProfitLoss($journalCount);
 
-        // Liabilities
-        $currentLiabilities = $journalCount['liabilities']->flatten()->sum('balance');
-        $lastLiabilities = $journalCountLastMonth['liabilities']->flatten()->sum('balance');
+        $journalCountLastMonth = $journal->journalCount(Carbon::create(1000, 1, 1)->endOfDay(), $lastMonth);
+        $profitLossLastMonth = $calculateProfitLoss($journalCountLastMonth);
+
+        $lastMonthEquity = $journalCountLastMonth['equity']->flatten()->sum('balance') + $profitLossLastMonth;
+        $currentEquity = $journalCount['equity']->flatten()->sum('balance') + $profitLoss;
+
+        $equityGrowthRate = $calculateGrowthRate($currentEquity, $lastMonthEquity);
+        $equityGrowthAmount = $currentEquity - $lastMonthEquity;
+
+        $assetsGrowthRate = $calculateGrowthRate($journalCount['assets']->flatten()->sum('balance'), $journalCountLastMonth['assets']->flatten()->sum('balance'));
+
+        $assetsGrowthAmount = $journalCount['assets']->flatten()->sum('balance') - $journalCountLastMonth['assets']->flatten()->sum('balance');
+
+        $liabilitiesGrowthAmount = $journalCount['liabilities']->flatten()->sum('balance') - $journalCountLastMonth['liabilities']->flatten()->sum('balance');
+
+        $liabilitiesGrowthRate = $calculateGrowthRate($journalCount['liabilities']->flatten()->sum('balance'), $journalCountLastMonth['liabilities']->flatten()->sum('balance'));
 
         $balanceSheet = [
             'assets' => [
-                'total' => $currentAssets,
+                'total' => $journalCount['assets']->flatten()->sum('balance'),
                 'accounts' => $journalCount['assets']->map(function ($a) {
                     return [
                         'acc_name' => $a->first()->account->name,
                         'balance' => intval($a->sum('balance')),
-                        'coa' => $a->map(fn($coa) => [
-                            'acc_name' => $coa->acc_name,
-                            'balance' => intval($coa->balance)
-                        ])->values()->toArray()
+                        'coa' => $a->map(function ($coa) {
+                            return [
+                                'acc_name' => $coa->acc_name,
+                                'balance' => intval($coa->balance)
+                            ];
+                        })
+                            ->values()
+                            ->toArray()
                     ];
-                })->values()->toArray()
+                })
+                    ->values()
+                    ->toArray()
             ],
             'liabilities' => [
-                'total' => $currentLiabilities,
+                'total' => $journalCount['liabilities']->flatten()->sum('balance'),
                 'accounts' => $journalCount['liabilities']->map(function ($a) {
                     return [
                         'acc_name' => $a->first()->account->name,
                         'balance' => intval($a->sum('balance')),
-                        'coa' => $a->map(fn($coa) => [
-                            'acc_name' => $coa->acc_name,
-                            'balance' => intval($coa->balance)
-                        ])->values()->toArray()
+                        'coa' => $a->map(function ($coa) {
+                            return [
+                                'acc_name' => $coa->acc_name,
+                                'balance' => intval($coa->balance)
+                            ];
+                        })
+                            ->values()
+                            ->toArray()
                     ];
-                })->values()->toArray()
+                })
+                    ->values()
+                    ->toArray()
             ],
             'equity' => [
-                'total' => $currentEquity,
+                'total' => $journalCount['equity']->flatten()->sum('balance'),
                 'accounts' => $journalCount['equity']->map(function ($a) {
                     return [
                         'acc_name' => $a->first()->account->name,
                         'balance' => intval($a->sum('balance')),
-                        'coa' => $a->map(fn($coa) => [
-                            'acc_name' => $coa->acc_name,
-                            'balance' => intval($coa->balance)
-                        ])->values()->toArray()
+                        'coa' => $a->map(function ($coa) {
+                            return [
+                                'acc_name' => $coa->acc_name,
+                                'balance' => intval($coa->balance)
+                            ];
+                        })
+                            ->values()
+                            ->toArray()
                     ];
-                })->values()->toArray()
+                })
+                    ->values()
+                    ->toArray()
             ],
             'profitloss' => $profitLoss,
             'equityGrowthRate' => [
-                'amount' => $currentEquity - $lastMonthEquity,
-                'rate' => $growthRate($currentEquity, $lastMonthEquity)
+                'amount' => $equityGrowthAmount,
+                'rate' => $equityGrowthRate
             ],
             'assetsGrowthRate' => [
-                'amount' => $currentAssets - $lastAssets,
-                'rate' => $growthRate($currentAssets, $lastAssets)
+                'amount' => $assetsGrowthAmount,
+                'rate' => $assetsGrowthRate
             ],
             'liabilitiesGrowthRate' => [
-                'amount' => $currentLiabilities - $lastLiabilities,
-                'rate' => $growthRate($currentLiabilities, $lastLiabilities)
+                'amount' => $liabilitiesGrowthAmount,
+                'rate' => $liabilitiesGrowthRate
             ],
-            'lastMonth' => $lastMonthEnd
+            'lastMonth' => $lastMonth
         ];
 
         return response()->json([
