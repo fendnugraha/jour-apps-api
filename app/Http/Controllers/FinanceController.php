@@ -196,8 +196,9 @@ class FinanceController extends Controller
     public function getFinanceByContactId($contactId)
     {
         $finance = Finance::with(['contact', 'account'])
-            ->selectRaw('contact_id, SUM(bill_amount) as tagihan, SUM(payment_amount) as terbayar, SUM(bill_amount) - SUM(payment_amount) as sisa, finance_type, invoice')
+            ->selectRaw('contact_id, SUM(bill_amount) as tagihan, SUM(payment_amount) as terbayar, SUM(bill_amount) - SUM(payment_amount) as sisa, finance_type, invoice, min(date_issued) as date_issued, min(created_at) as created_at')
             ->groupBy('contact_id', 'finance_type', 'invoice')
+            ->latest('created_at')
             ->where('contact_id', $contactId)
             ->get();
 
