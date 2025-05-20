@@ -55,13 +55,25 @@ class FinanceController extends Controller
         $pay = new Finance();
         $invoice_number = $pay->invoice_finance($request->contact_id, $request->type);
 
-        $request->validate([
-            'amount' => 'required|numeric',
-            'description' => 'required|max:160',
-            'contact_id' => 'required|exists:contacts,id',
-            'debt_code' => 'required|exists:chart_of_accounts,id',
-            'cred_code' => 'required|exists:chart_of_accounts,id',
-        ]);
+        $request->validate(
+            [
+                'amount' => 'required|numeric',
+                'description' => 'required|max:160',
+                'contact_id' => 'required|exists:contacts,id',
+                'debt_code' => 'required|exists:chart_of_accounts,id',
+                'cred_code' => 'required|exists:chart_of_accounts,id',
+            ],
+            [
+                'contact_id.required' => 'Customer harus diisi.',
+                'debt_code.required' => 'Akun debet harus diisi.',
+                'cred_code.required' => 'Akun kredit harus diisi.',
+                'amount.required' => 'Jumlah harus diisi.',
+                'amount.numeric' => 'Jumlah harus berupa angka.',
+                'description.required' => 'Deskripsi harus diisi.',
+                'description.max' => 'Deskripsi maksimal 160 karakter.',
+
+            ]
+        );
 
         DB::beginTransaction();
         try {

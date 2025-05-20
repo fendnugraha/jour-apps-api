@@ -104,13 +104,14 @@ class JournalController extends Controller
                 $descriptionParts[] = "Fee amount changed from Rp $oldFeeFormatted to Rp $newFeeFormatted.";
             }
 
-
-            $log->create([
-                'user_id' => auth()->id(),
-                'warehouse_id' => $journal->warehouse_id,
-                'activity' => 'Updated Journal',
-                'description' => 'Updated Journal with ID: ' . $journal->id . '. ' . implode(' ', $descriptionParts),
-            ]);
+            if ($isAmountChanged || $isFeeAmountChanged) {
+                $log->create([
+                    'user_id' => auth()->id(),
+                    'warehouse_id' => $journal->warehouse_id,
+                    'activity' => 'Updated Journal',
+                    'description' => 'Updated Journal with ID: ' . $journal->id . '. ' . implode(' ', $descriptionParts),
+                ]);
+            }
 
             DB::commit();
         } catch (\Exception $e) {
