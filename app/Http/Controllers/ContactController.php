@@ -11,9 +11,17 @@ class ContactController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $contacts = Contact::orderBy('name', 'asc')->paginate(10);
+        $contacts = Contact::orderBy('name', 'asc')
+            ->when($request->search, function ($query, $search) {
+                $query->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('phone_number', 'like', '%' . $search . '%')
+                    ->orWhere('address', 'like', '%' . $search . '%')
+                    ->orWhere('description', 'like', '%' . $search . '%');
+            })
+            ->paginate(10)
+            ->onEachSide(0);
         return new AccountResource($contacts, true, "Successfully fetched contacts");
     }
 
