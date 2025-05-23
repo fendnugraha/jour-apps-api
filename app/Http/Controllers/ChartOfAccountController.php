@@ -25,9 +25,17 @@ class ChartOfAccountController extends Controller
         $this->endDate = Carbon::now()->endOfMonth();
     }
 
-    public function index()
+
+    public function index(Request $request)
     {
-        $chartOfAccounts = ChartOfAccount::with(['account', 'warehouse'])->orderBy('acc_code')->paginate(10)->onEachSide(0);
+        $chartOfAccounts = ChartOfAccount::with(['account', 'warehouse'])
+            ->when($request->search, function ($query) use ($request) {
+                $query->where('acc_name', 'like', '%' . $request->search . '%')
+                    ->orWhere('acc_code', 'like', '%' . $request->search . '%');
+            })
+            ->orderBy('acc_code')
+            ->paginate(10)
+            ->onEachSide(0);
         return new AccountResource($chartOfAccounts, true, "Successfully fetched chart of accounts");
     }
 

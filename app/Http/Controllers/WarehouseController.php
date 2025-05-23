@@ -17,9 +17,12 @@ class WarehouseController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $warehouses = Warehouse::with('ChartOfAccount')->paginate(5);
+        $warehouses = Warehouse::with('ChartOfAccount')
+            ->when($request->search, function ($query, $search) {
+                $query->where('name', 'like', '%' . $search . '%');
+            })->paginate(5)->onEachSide(0);
         return new AccountResource($warehouses, true, "Successfully fetched warehouses");
     }
 
