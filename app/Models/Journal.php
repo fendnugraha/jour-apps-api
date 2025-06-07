@@ -194,7 +194,7 @@ class Journal extends Model
 
     public function cashflowCount($start_date, $end_date)
     {
-        $cashAccount = ChartOfAccount::all();
+        $cashAccount = ChartOfAccount::whereIn('account_id', [1, 2])->get();
 
         $transactions = $this->selectRaw('debt_code, cred_code, SUM(amount) as total')
             ->whereBetween('date_issued', [$start_date, $end_date])
@@ -216,36 +216,49 @@ class Journal extends Model
 
     public function journalCount($startDate, $endDate, $warehouse = "all")
     {
-        $journal = new Journal();
-        $transactions = $journal->with(['debt', 'cred'])
-            ->selectRaw('debt_code, cred_code, SUM(amount) as total')
-            ->whereBetween('date_issued', [$startDate, $endDate])
-            ->groupBy('debt_code', 'cred_code')
+        $accountBalances = Journal::selectRaw("
+        chart.id as coa_id,
+        chart.acc_name as coa_name,
+        chart.st_balance,
+        acc.status,
+        acc.id as acc_id,
+        acc.name as account_name,
+        SUM(CASE WHEN journals.debt_code = chart.id THEN journals.amount ELSE 0 END) as total_debit,
+        SUM(CASE WHEN journals.cred_code = chart.id THEN journals.amount ELSE 0 END) as total_credit
+    ")
+            ->join('chart_of_accounts as chart', function ($join) {
+                $join->on('journals.debt_code', '=', 'chart.id')
+                    ->orOn('journals.cred_code', '=', 'chart.id');
+            })
+            ->join('accounts as acc', 'chart.account_id', '=', 'acc.id')
+            ->whereBetween('journals.date_issued', [$startDate, $endDate])
+            ->when($warehouse !== 'all', fn($q) => $q->where('chart.warehouse_id', $warehouse))
+            ->orderBy('chart.acc_code', 'asc')
+            ->groupBy('chart.id', 'chart.st_balance', 'acc.status')
             ->get();
 
-        $chartOfAccounts = ChartOfAccount::with(['account'])->where(fn($query) => $warehouse == "all" ? $query : $query->where('warehouse_id', $warehouse))->get();
 
-        foreach ($chartOfAccounts as $value) {
-            $debit = $transactions->where('debt_code', $value->id)->sum('total');
-            $credit = $transactions->where('cred_code', $value->id)->sum('total');
-
-            $value->balance = ($value->account->status == "D") ? ($value->st_balance + $debit - $credit) : ($value->st_balance + $credit - $debit);
+        foreach ($accountBalances as $acc) {
+            $acc->balance = $acc->status === 'D'
+                ? $acc->st_balance + $acc->total_debit - $acc->total_credit
+                : $acc->st_balance + $acc->total_credit - $acc->total_debit;
         }
 
-        $revenue = $chartOfAccounts->whereIn('account_id', \range(27, 30))->groupBy('account_id');
-        $cost = $chartOfAccounts->whereIn('account_id', \range(31, 32))->groupBy('account_id');
-        $expense = $chartOfAccounts->whereIn('account_id', \range(33, 45))->groupBy('account_id');
-        $assets = $chartOfAccounts->whereIn('account_id', \range(1, 18))->groupBy('account_id');
-        $currentAssets = $chartOfAccounts->whereIn('account_id', \range(1, 9))->groupBy('account_id');
-        $inventory = $chartOfAccounts->whereIn('account_id', [6, 7])->groupBy('account_id');
-        $liabilities = $chartOfAccounts->whereIn('account_id', \range(19, 25))->groupBy('account_id');
-        $equity = $chartOfAccounts->where('account_id', 26)->groupBy('account_id');
-        $cash = $chartOfAccounts->where('account_id', 1)->groupBy('account_id');
-        $bank = $chartOfAccounts->where('account_id', 2)->groupBy('account_id');
-        $receivable = $chartOfAccounts->whereIn('account_id', [4, 5])->groupBy('account_id');
-        $payable = $chartOfAccounts->whereIn('account_id', \range(19, 25))->groupBy('account_id');
+        $revenue = $accountBalances->whereIn('acc_id', \range(27, 30))->groupBy('acc_id');
+        $cost = $accountBalances->whereIn('acc_id', \range(31, 32))->groupBy('acc_id');
+        $expense = $accountBalances->whereIn('acc_id', \range(33, 45))->groupBy('acc_id');
+        $assets = $accountBalances->whereIn('acc_id', \range(1, 18))->groupBy('acc_id');
+        $currentAssets = $accountBalances->whereIn('acc_id', \range(1, 9))->groupBy('acc_id');
+        $inventory = $accountBalances->whereIn('acc_id', [6, 7])->groupBy('acc_id');
+        $liabilities = $accountBalances->whereIn('acc_id', \range(19, 25))->groupBy('acc_id');
+        $equity = $accountBalances->where('acc_id', 26)->groupBy('acc_id');
+        $cash = $accountBalances->where('acc_id', 1)->groupBy('acc_id');
+        $bank = $accountBalances->where('acc_id', 2)->groupBy('acc_id');
+        $receivable = $accountBalances->whereIn('acc_id', [4, 5])->groupBy('acc_id');
+        $payable = $accountBalances->whereIn('acc_id', \range(19, 25))->groupBy('acc_id');
 
         return [
+            'accountBalances' => $accountBalances,
             'revenue' => $revenue,
             'cost' => $cost,
             'expense' => $expense,

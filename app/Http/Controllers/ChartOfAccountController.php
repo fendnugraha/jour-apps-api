@@ -255,11 +255,11 @@ class ChartOfAccountController extends Controller
                 'total' => $journalCount['revenue']->flatten()->sum('balance'),
                 'accounts' => $journalCount['revenue']->map(function ($a) {
                     return [
-                        'acc_name' => $a->first()->account->name,
+                        'acc_name' => $a->first()->account_name,
                         'balance' => intval($a->sum('balance')),
                         'coa' => $a->map(function ($coa) {
                             return [
-                                'acc_name' => $coa->acc_name,
+                                'acc_name' => $coa->coa_name,
                                 'balance' => intval($coa->balance)
                             ];
                         })
@@ -274,11 +274,11 @@ class ChartOfAccountController extends Controller
                 'total' => $journalCount['cost']->flatten()->sum('balance'),
                 'accounts' => $journalCount['cost']->map(function ($a) {
                     return [
-                        'acc_name' => $a->first()->account->name,
+                        'acc_name' => $a->first()->account_name,
                         'balance' => intval($a->sum('balance')),
                         'coa' => $a->map(function ($coa) {
                             return [
-                                'acc_name' => $coa->acc_name,
+                                'acc_name' => $coa->coa_name,
                                 'balance' => intval($coa->balance)
                             ];
                         })
@@ -293,11 +293,11 @@ class ChartOfAccountController extends Controller
                 'total' => $journalCount['expense']->flatten()->sum('balance'),
                 'accounts' => $journalCount['expense']->map(function ($a) {
                     return [
-                        'acc_name' => $a->first()->account->name,
+                        'acc_name' => $a->first()->account_name,
                         'balance' => intval($a->sum('balance')),
                         'coa' => $a->map(function ($coa) {
                             return [
-                                'acc_name' => $coa->acc_name,
+                                'acc_name' => $coa->coa_name,
                                 'balance' => intval($coa->balance)
                             ];
                         })
@@ -358,15 +358,16 @@ class ChartOfAccountController extends Controller
         $liabilitiesGrowthRate = $calculateGrowthRate($journalCount['liabilities']->flatten()->sum('balance'), $journalCountLastMonth['liabilities']->flatten()->sum('balance'));
 
         $balanceSheet = [
+            'accountBalances' => $journalCount,
             'assets' => [
                 'total' => $journalCount['assets']->flatten()->sum('balance'),
                 'accounts' => $journalCount['assets']->map(function ($a) {
                     return [
-                        'acc_name' => $a->first()->account->name,
+                        'acc_name' => $a->first()->account_name,
                         'balance' => intval($a->sum('balance')),
                         'coa' => $a->map(function ($coa) {
                             return [
-                                'acc_name' => $coa->acc_name,
+                                'acc_name' => $coa->coa_name,
                                 'balance' => intval($coa->balance)
                             ];
                         })
@@ -381,11 +382,11 @@ class ChartOfAccountController extends Controller
                 'total' => $journalCount['liabilities']->flatten()->sum('balance'),
                 'accounts' => $journalCount['liabilities']->map(function ($a) {
                     return [
-                        'acc_name' => $a->first()->account->name,
+                        'acc_name' => $a->first()->account_name,
                         'balance' => intval($a->sum('balance')),
                         'coa' => $a->map(function ($coa) {
                             return [
-                                'acc_name' => $coa->acc_name,
+                                'acc_name' => $coa->coa_name,
                                 'balance' => intval($coa->balance)
                             ];
                         })
@@ -400,11 +401,11 @@ class ChartOfAccountController extends Controller
                 'total' => $journalCount['equity']->flatten()->sum('balance'),
                 'accounts' => $journalCount['equity']->map(function ($a) {
                     return [
-                        'acc_name' => $a->first()->account->name,
+                        'acc_name' => $a->first()->account_name,
                         'balance' => intval($a->sum('balance')),
                         'coa' => $a->map(function ($coa) {
                             return [
-                                'acc_name' => $coa->acc_name,
+                                'acc_name' => $coa->coa_name,
                                 'balance' => intval($coa->balance)
                             ];
                         })
