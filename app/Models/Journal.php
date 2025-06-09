@@ -234,7 +234,7 @@ class Journal extends Model
             ->whereBetween('journals.date_issued', [$startDate, $endDate])
             ->when($warehouse !== 'all', fn($q) => $q->where('chart.warehouse_id', $warehouse))
             ->orderBy('chart.acc_code', 'asc')
-            ->groupBy('chart.id', 'chart.st_balance', 'acc.status', 'chart.acc_name', 'acc.id')
+            ->groupBy('chart.id', 'chart.st_balance', 'acc.status', 'chart.acc_name', 'acc.id', 'acc.name')
             ->get();
 
 
