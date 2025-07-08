@@ -215,8 +215,9 @@ class JournalController extends Controller
                 'warehouse_id' => auth()->user()->role->warehouse_id
             ]);
 
+            $date = Carbon::parse($journal->date_issued)->toDateString();
             if ($journal->date_issued < $this->startDate) {
-                Journal::_updateBalancesDirectly($journal->date_issued);
+                Journal::_updateBalancesDirectly($date);
                 AccountBalance::where('balance_date', '>', $this->startDate)->delete();
             }
 
@@ -333,8 +334,9 @@ class JournalController extends Controller
                 'warehouse_id' => auth()->user()->role->warehouse_id
             ]);
 
+            $date = Carbon::parse($journal->date_issued)->toDateString();
             if ($journal->date_issued < $this->startDate) {
-                Journal::_updateBalancesDirectly($journal->date_issued);
+                Journal::_updateBalancesDirectly($date);
                 AccountBalance::where('balance_date', '>', $this->startDate)->delete();
             }
 
@@ -401,8 +403,9 @@ class JournalController extends Controller
                 ]);
             }
 
+            $date = Carbon::parse($journal->date_issued)->toDateString();
             if ($journal->date_issued < $this->startDate) {
-                Journal::_updateBalancesDirectly($journal->date_issued);
+                Journal::_updateBalancesDirectly($date);
                 AccountBalance::where('balance_date', '>', $this->startDate)->delete();
             }
 
