@@ -246,20 +246,58 @@ class ChartOfAccountController extends Controller
         $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->startOfDay();
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
 
-        $journal = new Journal();
+        $chartOfAccounts = ChartOfAccount::with('account')->get();
+        $allAccountIds = $chartOfAccounts->pluck('id')->toArray();
 
-        $journalCount = $journal->journalCount($startDate, $endDate);
+        $dailyDebits = Journal::selectRaw('debt_code as account_id, SUM(amount) as total_amount')
+            ->whereIn('debt_code', $allAccountIds)
+            ->whereBetween('date_issued', [$startDate, $endDate]) // HANYA AKTIVITAS HARI INI
+            ->groupBy('debt_code')
+            ->pluck('total_amount', 'account_id')
+            ->toArray();
+
+        // 4. Pre-fetch total credit aktivitas untuk HANYA tanggal $endDate
+        $dailyCredits = Journal::selectRaw('cred_code as account_id, SUM(amount) as total_amount')
+            ->whereIn('cred_code', $allAccountIds)
+            ->whereBetween('date_issued', [$startDate, $endDate]) // HANYA AKTIVITAS HARI INI
+            ->groupBy('cred_code')
+            ->pluck('total_amount', 'account_id')
+            ->toArray();
+        foreach ($chartOfAccounts as $chartOfAccount) {
+            // Mengambil saldo awal dari previousDayBalances atau fallback ke st_balance
+            // Menggunakan chart_of_account_id untuk look-up di previousDayBalances
+            $initBalance = $previousDayBalances[$chartOfAccount->id] ?? ($chartOfAccount->st_balance ?? 0.00);
+            // $initBalance = 0;
+            $normalBalance = $chartOfAccount->account->status ?? '';
+
+            // Mengambil debit/credit hari ini dari pre-fetched arrays
+            $debitToday = $dailyDebits[$chartOfAccount->id] ?? 0.00;
+            $creditToday = $dailyCredits[$chartOfAccount->id] ?? 0.00;
+
+            // Hitung saldo akhir
+            $chartOfAccount->balance = $initBalance + ($normalBalance === 'D' ? $debitToday - $creditToday : $creditToday - $debitToday);
+        }
+
+        $revenue = $chartOfAccounts->whereIn('account_id', \range(27, 30))->groupBy('account_id');
+        $cost = $chartOfAccounts->whereIn('account_id', \range(31, 32))->groupBy('account_id');
+        $expense = $chartOfAccounts->whereIn('account_id', \range(33, 45))->groupBy('account_id');
+
+        $journalCount = [
+            'revenue' => $revenue,
+            'cost' => $cost,
+            'expense' => $expense
+        ];
 
         $profitloss = [
             'revenue' => [
                 'total' => $journalCount['revenue']->flatten()->sum('balance'),
                 'accounts' => $journalCount['revenue']->map(function ($a) {
                     return [
-                        'acc_name' => $a->first()->account_name,
+                        'acc_name' => $a->first()->account->name,
                         'balance' => intval($a->sum('balance')),
                         'coa' => $a->map(function ($coa) {
                             return [
-                                'acc_name' => $coa->coa_name,
+                                'acc_name' => $coa->acc_name,
                                 'balance' => intval($coa->balance)
                             ];
                         })
@@ -274,11 +312,11 @@ class ChartOfAccountController extends Controller
                 'total' => $journalCount['cost']->flatten()->sum('balance'),
                 'accounts' => $journalCount['cost']->map(function ($a) {
                     return [
-                        'acc_name' => $a->first()->account_name,
+                        'acc_name' => $a->first()->account->name,
                         'balance' => intval($a->sum('balance')),
                         'coa' => $a->map(function ($coa) {
                             return [
-                                'acc_name' => $coa->coa_name,
+                                'acc_name' => $coa->acc_name,
                                 'balance' => intval($coa->balance)
                             ];
                         })
@@ -293,11 +331,11 @@ class ChartOfAccountController extends Controller
                 'total' => $journalCount['expense']->flatten()->sum('balance'),
                 'accounts' => $journalCount['expense']->map(function ($a) {
                     return [
-                        'acc_name' => $a->first()->account_name,
+                        'acc_name' => $a->first()->account->name,
                         'balance' => intval($a->sum('balance')),
                         'coa' => $a->map(function ($coa) {
                             return [
-                                'acc_name' => $coa->coa_name,
+                                'acc_name' => $coa->acc_name,
                                 'balance' => intval($coa->balance)
                             ];
                         })
@@ -337,10 +375,10 @@ class ChartOfAccountController extends Controller
             return $last > 0 ? (($now - $last) / $last) * 100 : 0;
         };
 
-        $journalCount = $journal->journalCount(Carbon::create(1000, 1, 1)->endOfDay(), $endDate);
+        $journalCount = $journal->journalCount($startDate, $endDate);
         $profitLoss = $calculateProfitLoss($journalCount);
 
-        $journalCountLastMonth = $journal->journalCount(Carbon::create(1000, 1, 1)->endOfDay(), $lastMonth);
+        $journalCountLastMonth = $journal->journalCount($startDate, $lastMonth);
         $profitLossLastMonth = $calculateProfitLoss($journalCountLastMonth);
 
         $lastMonthEquity = $journalCountLastMonth['equity']->flatten()->sum('balance') + $profitLossLastMonth;
@@ -363,11 +401,11 @@ class ChartOfAccountController extends Controller
                 'total' => $journalCount['assets']->flatten()->sum('balance'),
                 'accounts' => $journalCount['assets']->map(function ($a) {
                     return [
-                        'acc_name' => $a->first()->account_name,
+                        'acc_name' => $a->first()->account->name,
                         'balance' => intval($a->sum('balance')),
                         'coa' => $a->map(function ($coa) {
                             return [
-                                'acc_name' => $coa->coa_name,
+                                'acc_name' => $coa->acc_name,
                                 'balance' => intval($coa->balance)
                             ];
                         })
@@ -382,11 +420,11 @@ class ChartOfAccountController extends Controller
                 'total' => $journalCount['liabilities']->flatten()->sum('balance'),
                 'accounts' => $journalCount['liabilities']->map(function ($a) {
                     return [
-                        'acc_name' => $a->first()->account_name,
+                        'acc_name' => $a->first()->account->name,
                         'balance' => intval($a->sum('balance')),
                         'coa' => $a->map(function ($coa) {
                             return [
-                                'acc_name' => $coa->coa_name,
+                                'acc_name' => $coa->acc_name,
                                 'balance' => intval($coa->balance)
                             ];
                         })
@@ -401,11 +439,11 @@ class ChartOfAccountController extends Controller
                 'total' => $journalCount['equity']->flatten()->sum('balance'),
                 'accounts' => $journalCount['equity']->map(function ($a) {
                     return [
-                        'acc_name' => $a->first()->account_name,
+                        'acc_name' => $a->first()->account->name,
                         'balance' => intval($a->sum('balance')),
                         'coa' => $a->map(function ($coa) {
                             return [
-                                'acc_name' => $coa->coa_name,
+                                'acc_name' => $coa->acc_name,
                                 'balance' => intval($coa->balance)
                             ];
                         })

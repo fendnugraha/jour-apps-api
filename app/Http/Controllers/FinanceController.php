@@ -7,10 +7,12 @@ use App\Models\Finance;
 use App\Models\Journal;
 use App\Models\LogActivity;
 use Illuminate\Http\Request;
+use App\Models\ChartOfAccount;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AccountResource;
+use App\Models\AccountBalance;
 
 class FinanceController extends Controller
 {
@@ -108,6 +110,11 @@ class FinanceController extends Controller
                 'warehouse_id' => 1
             ]);
 
+            if ($dateIssued < Carbon::now()->startOfDay()) {
+                Journal::_updateBalancesDirectly($dateIssued);
+                AccountBalance::where('balance_date', '>', Carbon::now()->startOfDay())->delete();
+            }
+
             DB::commit();
 
             return response()->json([
@@ -178,6 +185,11 @@ class FinanceController extends Controller
 
         DB::beginTransaction();
         try {
+            if ($finance->date_issued < Carbon::now()->startOfDay()) {
+                Journal::_updateBalancesDirectly($finance->date_issued);
+                AccountBalance::where('balance_date', '>', Carbon::now()->startOfDay())->delete();
+            }
+
             Journal::where('invoice', $invoice)->where('payment_status', $finance->payment_status)->where('payment_nth', $finance->payment_nth)->delete();
             $finance->delete();
 
@@ -311,6 +323,11 @@ class FinanceController extends Controller
                 'warehouse_id' => 1
             ]);
 
+            if ($dateIssued < Carbon::now()->startOfDay()) {
+                Journal::_updateBalancesDirectly($dateIssued);
+                AccountBalance::where('balance_date', '>', Carbon::now()->startOfDay())->delete();
+            }
+
             DB::commit();
 
             return response()->json([
@@ -325,5 +342,63 @@ class FinanceController extends Controller
                 'message' => $th->getMessage()
             ], 500);
         }
+    }
+
+    public function getFinanceYearly($year)
+    {
+        $year = $year ?: Carbon::now()->year;
+
+        $previousDate = Carbon::parse($year . '-01-01')->toDateString();
+
+        $payableAccountId = 7;
+        $receivableAccountId = 4;
+
+        // Cek apakah record ada
+        $payableRecord = AccountBalance::where('chart_of_account_id', $payableAccountId)
+            ->where('balance_date', $previousDate)
+            ->first();
+
+        $receivableRecord = AccountBalance::where('chart_of_account_id', $receivableAccountId)
+            ->where('balance_date', $previousDate)
+            ->first();
+
+        if (!$payableRecord || !$receivableRecord) {
+            Journal::_updateBalancesDirectly($previousDate);
+
+            // Refresh
+            $payableRecord = AccountBalance::where('chart_of_account_id', $payableAccountId)
+                ->where('balance_date', $previousDate)
+                ->first();
+
+            $receivableRecord = AccountBalance::where('chart_of_account_id', $receivableAccountId)
+                ->where('balance_date', $previousDate)
+                ->first();
+        }
+
+        $previousPayableBalance = optional($payableRecord)->ending_balance ?? 0;
+        $previousReceivableBalance = optional($receivableRecord)->ending_balance ?? 0;
+
+        $finance = Finance::selectRaw('
+        SUM(bill_amount) as tagihan,
+        SUM(payment_amount) as terbayar,
+        SUM(bill_amount) - SUM(payment_amount) as sisa,
+        finance_type,
+        YEAR(date_issued) as year,
+        MONTH(date_issued) as month
+    ')
+            ->whereYear('date_issued', $year)
+            ->groupBy(['finance_type', 'year', 'month'])
+            ->orderBy('month', 'asc')
+            ->get();
+
+        $data = [
+            'initBalance' => [
+                'Payable' => $previousPayableBalance,
+                'Receivable' => $previousReceivableBalance,
+            ],
+            'finance' => $finance,
+        ];
+
+        return new AccountResource($data, true, "Successfully fetched finances");
     }
 }

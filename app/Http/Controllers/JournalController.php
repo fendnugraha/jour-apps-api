@@ -12,6 +12,7 @@ use App\Models\ChartOfAccount;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Http\Resources\AccountResource;
+use App\Models\AccountBalance;
 use App\Models\LogActivity;
 
 class JournalController extends Controller
@@ -113,6 +114,11 @@ class JournalController extends Controller
                 ]);
             }
 
+            if ($journal->date_issued < $this->startDate) {
+                Journal::_updateBalancesDirectly($journal->date_issued);
+                AccountBalance::where('balance_date', '>', $this->startDate)->delete();
+            }
+
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
@@ -143,6 +149,11 @@ class JournalController extends Controller
         $log = new LogActivity();
         DB::beginTransaction();
         try {
+            if ($journal->date_issued < Carbon::now()->startOfDay()) {
+                Journal::_updateBalancesDirectly($journal->date_issued);
+                AccountBalance::where('balance_date', '>', Carbon::now()->startOfDay())->delete();
+            }
+
             $journal->where('invoice', $journal->invoice)->delete();
             if ($transactionsExist) {
                 $journal->transaction()->delete();
@@ -203,6 +214,11 @@ class JournalController extends Controller
                 'user_id' => auth()->user()->id,
                 'warehouse_id' => auth()->user()->role->warehouse_id
             ]);
+
+            if ($journal->date_issued < $this->startDate) {
+                Journal::_updateBalancesDirectly($journal->date_issued);
+                AccountBalance::where('balance_date', '>', $this->startDate)->delete();
+            }
 
             DB::commit();
 
@@ -317,6 +333,11 @@ class JournalController extends Controller
                 'warehouse_id' => auth()->user()->role->warehouse_id
             ]);
 
+            if ($journal->date_issued < $this->startDate) {
+                Journal::_updateBalancesDirectly($journal->date_issued);
+                AccountBalance::where('balance_date', '>', $this->startDate)->delete();
+            }
+
             DB::commit();
 
             return response()->json([
@@ -378,6 +399,11 @@ class JournalController extends Controller
                     'user_id' => auth()->user()->id,
                     'warehouse_id' => 1
                 ]);
+            }
+
+            if ($journal->date_issued < $this->startDate) {
+                Journal::_updateBalancesDirectly($journal->date_issued);
+                AccountBalance::where('balance_date', '>', $this->startDate)->delete();
             }
 
             DB::commit();
@@ -451,6 +477,11 @@ class JournalController extends Controller
                     'user_id' => auth()->user()->id,
                     'warehouse_id' => auth()->user()->role->warehouse_id
                 ]);
+            }
+
+            if ($journal->date_issued < $this->startDate) {
+                Journal::_updateBalancesDirectly($journal->date_issued);
+                AccountBalance::where('balance_date', '>', $this->startDate)->delete();
             }
 
             DB::commit();

@@ -77,6 +77,8 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::get('finance-by-type/{contact}/{financeType}', [FinanceController::class, 'getFinanceByType']);
     Route::get('get-finance-by-contact-id/{contactId}', [FinanceController::class, 'getFinanceByContactId']);
     Route::post('store-payment', [FinanceController::class, 'storePayment']);
+    Route::get('get-finance-data/{invoice}', [FinanceController::class, 'getFinanceData']);
+    Route::get('get-finance-yearly/{year}', [FinanceController::class, 'getFinanceYearly']);
 
     Route::get('log-activity/{startDate}/{endDate}', [LogActivityController::class, 'index']);
 });
