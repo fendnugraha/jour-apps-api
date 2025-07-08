@@ -323,7 +323,7 @@ class Journal extends Model
     public static function _updateBalancesDirectly(string $dateToUpdate): void
     {
         // Parsing tanggal untuk memastikan format yang benar
-        $targetDate = Carbon::parse($dateToUpdate)->toDateString();
+        $targetDate = Carbon::parse($dateToUpdate);
 
         try {
             $chartOfAccounts = ChartOfAccount::all();
