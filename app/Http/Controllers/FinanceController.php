@@ -110,10 +110,7 @@ class FinanceController extends Controller
                 'warehouse_id' => 1
             ]);
 
-            if ($dateIssued < Carbon::now()->startOfDay()) {
-                Journal::_updateBalancesDirectly($dateIssued);
-                AccountBalance::where('balance_date', '>', Carbon::now()->startOfDay())->delete();
-            }
+            $this->_recalculateAccountBalance($dateIssued);
 
             DB::commit();
 
@@ -185,10 +182,7 @@ class FinanceController extends Controller
 
         DB::beginTransaction();
         try {
-            if ($finance->date_issued < Carbon::now()->startOfDay()) {
-                Journal::_updateBalancesDirectly($finance->date_issued);
-                AccountBalance::where('balance_date', '>', Carbon::now()->startOfDay())->delete();
-            }
+            $this->_recalculateAccountBalance($finance->date_issued);
 
             Journal::where('invoice', $invoice)->where('payment_status', $finance->payment_status)->where('payment_nth', $finance->payment_nth)->delete();
             $finance->delete();
@@ -323,10 +317,7 @@ class FinanceController extends Controller
                 'warehouse_id' => 1
             ]);
 
-            if ($dateIssued < Carbon::now()->startOfDay()) {
-                Journal::_updateBalancesDirectly($dateIssued);
-                AccountBalance::where('balance_date', '>', Carbon::now()->startOfDay())->delete();
-            }
+            $this->_recalculateAccountBalance($dateIssued);
 
             DB::commit();
 
@@ -400,5 +391,15 @@ class FinanceController extends Controller
         ];
 
         return new AccountResource($data, true, "Successfully fetched finances");
+    }
+
+    private function _recalculateAccountBalance(string $date): void
+    {
+        $dateToString = Carbon::parse($date)->toDateString();
+        if ($date < Carbon::now()->startOfDay()) {
+            Journal::_updateBalancesDirectly($dateToString);
+            AccountBalance::where('balance_date', '>', Carbon::parse($date)->toDateString())->delete();
+            Log::info('Account balances updated successfully for date: ' . $date);
+        }
     }
 }

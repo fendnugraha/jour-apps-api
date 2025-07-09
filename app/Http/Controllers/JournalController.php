@@ -114,11 +114,7 @@ class JournalController extends Controller
                 ]);
             }
 
-            $date = Carbon::parse($journal->date_issued)->toDateString();
-            if ($journal->date_issued < $this->startDate) {
-                Journal::_updateBalancesDirectly($date);
-                AccountBalance::where('balance_date', '>', $this->startDate)->delete();
-            }
+            $this->_recalculateAccountBalance($journal->date_issued);
 
             DB::commit();
         } catch (\Exception $e) {
@@ -150,10 +146,7 @@ class JournalController extends Controller
         $log = new LogActivity();
         DB::beginTransaction();
         try {
-            if ($journal->date_issued < Carbon::now()->startOfDay()) {
-                Journal::_updateBalancesDirectly($journal->date_issued);
-                AccountBalance::where('balance_date', '>', Carbon::now()->startOfDay())->delete();
-            }
+            $this->_recalculateAccountBalance($journal->date_issued);
 
             $journal->where('invoice', $journal->invoice)->delete();
             if ($transactionsExist) {
@@ -216,11 +209,7 @@ class JournalController extends Controller
                 'warehouse_id' => auth()->user()->role->warehouse_id
             ]);
 
-            $date = Carbon::parse($journal->date_issued)->toDateString();
-            if ($journal->date_issued < $this->startDate) {
-                Journal::_updateBalancesDirectly($date);
-                AccountBalance::where('balance_date', '>', $this->startDate)->delete();
-            }
+            $this->_recalculateAccountBalance($request->dateIssued);
 
             DB::commit();
 
@@ -335,11 +324,7 @@ class JournalController extends Controller
                 'warehouse_id' => auth()->user()->role->warehouse_id
             ]);
 
-            $date = Carbon::parse($journal->date_issued)->toDateString();
-            if ($journal->date_issued < $this->startDate) {
-                Journal::_updateBalancesDirectly($date);
-                AccountBalance::where('balance_date', '>', $this->startDate)->delete();
-            }
+            $this->_recalculateAccountBalance($request->dateIssued);
 
             DB::commit();
 
@@ -404,11 +389,7 @@ class JournalController extends Controller
                 ]);
             }
 
-            $date = Carbon::parse($journal->date_issued)->toDateString();
-            if ($journal->date_issued < $this->startDate) {
-                Journal::_updateBalancesDirectly($date);
-                AccountBalance::where('balance_date', '>', $this->startDate)->delete();
-            }
+            $this->_recalculateAccountBalance($request->dateIssued);
 
             DB::commit();
 
@@ -483,11 +464,7 @@ class JournalController extends Controller
                 ]);
             }
 
-            $date = Carbon::parse($journal->date_issued)->toDateString();
-            if ($journal->date_issued < $this->startDate) {
-                Journal::_updateBalancesDirectly($date);
-                AccountBalance::where('balance_date', '>', $this->startDate)->delete();
-            }
+            $this->_recalculateAccountBalance($request->dateIssued);
 
             DB::commit();
 
@@ -779,5 +756,15 @@ class JournalController extends Controller
             'success' => true,
             'data' => $dailyProfit
         ], 200);
+    }
+
+    private function _recalculateAccountBalance(string $date): void
+    {
+        $dateToString = Carbon::parse($date)->toDateString();
+        if ($date < Carbon::now()->startOfDay()) {
+            Journal::_updateBalancesDirectly($dateToString);
+            AccountBalance::where('balance_date', '>', Carbon::parse($date)->toDateString())->delete();
+            Log::info('Account balances updated successfully for date: ' . $date);
+        }
     }
 }
