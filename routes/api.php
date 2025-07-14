@@ -88,4 +88,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     //warehouseStock
 
     Route::get('warehouse-stocks/{warehouse}', [WarehouseStockController::class, 'index']);
+    Route::post('warehouse-stocks', [WarehouseStockController::class, 'store']);
+    Route::put('warehouse-stocks/{id}', [WarehouseStockController::class, 'update']);
+    Route::delete('warehouse-stocks/{id}', [WarehouseStockController::class, 'destroy']);
 });

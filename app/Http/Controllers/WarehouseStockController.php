@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use Illuminate\Http\Request;
 use App\Models\WarehouseStock;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Http\Resources\AccountResource;
 
 class WarehouseStockController extends Controller
@@ -33,7 +36,50 @@ class WarehouseStockController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $request->validate([
+            'warehouse_id' => 'required|exists:warehouses,id',
+            'product_id' => 'required|exists:products,id',
+            'init_stock' => 'required|numeric|min:0',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $warehouseStock = WarehouseStock::where('warehouse_id', $request->warehouse_id)
+                ->where('product_id', $request->product_id)
+                ->first();
+
+            if (!$warehouseStock) {
+                WarehouseStock::create([
+                    'warehouse_id' => $request->warehouse_id,
+                    'product_id' => $request->product_id,
+                    'init_stock' => $request->init_stock,
+                    'current_stock' => $request->init_stock, // Optional: sync awal
+                ]);
+            } else {
+                $warehouseStock->update([
+                    'init_stock' => $request->init_stock,
+                    // optionally sync current_stock too
+                ]);
+
+                Product::updateWarehouseStock($request->product_id, $request->warehouse_id);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Warehouse stock updated successfully',
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update warehouse stock: ' . $e->getMessage(),
+            ]);
+        }
     }
 
     /**
