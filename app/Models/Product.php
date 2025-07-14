@@ -22,6 +22,11 @@ class Product extends Model
         return $this->belongsTo(ProductCategory::class);
     }
 
+    public function warehouseStock()
+    {
+        return $this->hasMany(WarehouseStock::class);
+    }
+
     public static function newCode($category)
     {
         $lastCode = Product::select(DB::raw('MAX(RIGHT(code,4)) AS lastCode'))

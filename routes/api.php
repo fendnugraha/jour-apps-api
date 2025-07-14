@@ -1,19 +1,20 @@
 <?php
 
+use App\Models\Finance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\JournalController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\WarehouseController;
+use App\Http\Controllers\LogActivityController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\ChartOfAccountController;
-use App\Http\Controllers\FinanceController;
-use App\Http\Controllers\LogActivityController;
+use App\Http\Controllers\WarehouseStockController;
 use App\Http\Controllers\ProductCategoryController;
-use App\Models\Finance;
 
 Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::get('/user', function (Request $request) {
@@ -71,6 +72,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::apiResource('transactions', TransactionController::class);
     Route::get('get-trx-vcr/{warehouse}/{startDate}/{endDate}', [TransactionController::class, 'getTrxVcr']);
     Route::get('get-trx-by-warehouse/{warehouse}/{startDate}/{endDate}', [TransactionController::class, 'getTrxByWarehouse']);
+    Route::post('store-with-deposit', [TransactionController::class, 'storeSalesWithDeposit']);
 
     //Finance
     Route::apiResource('finance', FinanceController::class);
@@ -81,4 +83,9 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::get('get-finance-yearly/{year}', [FinanceController::class, 'getFinanceYearly']);
 
     Route::get('log-activity/{startDate}/{endDate}', [LogActivityController::class, 'index']);
+
+
+    //warehouseStock
+
+    Route::get('warehouse-stocks/{warehouse}', [WarehouseStockController::class, 'index']);
 });

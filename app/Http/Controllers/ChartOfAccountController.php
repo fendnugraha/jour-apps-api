@@ -6,7 +6,9 @@ use Carbon\Carbon;
 use App\Models\Journal;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
+use App\Models\AccountBalance;
 use App\Models\ChartOfAccount;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Http\Resources\AccountResource;
 
@@ -121,6 +123,10 @@ class ChartOfAccountController extends Controller
             ]);
 
             $chartOfAccount->updateInitEquityBalance();
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+            AccountBalance::truncate();
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+
 
             return response()->json([
                 'message' => 'Chart of account updated successfully',

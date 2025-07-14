@@ -49,7 +49,7 @@ class ProductController extends Controller
 
         $product->create([
             'code' => $product->newCode($request->category),
-            'name' => $request->name,
+            'name' => strtoupper($request->name),
             'category' => $request->category,
             'price' => $request->price,
             'cost' => $request->cost

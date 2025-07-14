@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Resources\AccountResource;
 use App\Models\AccountBalance;
 use App\Models\LogActivity;
+use App\Models\WarehouseStock;
 
 class JournalController extends Controller
 {
@@ -136,38 +137,65 @@ class JournalController extends Controller
      */
     public function destroy(Journal $journal)
     {
-        $transactionsExist = $journal->transaction()->exists();
-        // if ($transactionsExist) {
-        //     return response()->json([
-        //         'success' => false,
-        //         'message' => 'Journal cannot be deleted because it has transactions'
-        //     ]);
-        // }
-        $log = new LogActivity();
+        $transaction = $journal->transaction;
+        $transactionsExist = $transaction !== null;
+        $invoice = $journal->invoice;
+        Log::info($invoice);
+
         DB::beginTransaction();
+
         try {
             $this->_recalculateAccountBalance($journal->date_issued);
 
-            $journal->where('invoice', $journal->invoice)->delete();
+            Journal::where('invoice', $invoice)->delete();
+
             if ($transactionsExist) {
-                $journal->transaction()->delete();
+                $transaction->each(function ($trx) {
+                    $trx->delete();
+                    $product = Product::find($trx->product_id);
+                    if (!$product) {
+                        throw new \Exception("Produk tidak ditemukan.");
+                    }
+
+                    $product_log = Transaction::where('product_id', $product->id)->sum('quantity');
+                    $end_Stock = $product->stock + $trx->quantity;
+
+                    $product->update([
+                        'end_Stock' => $end_Stock,
+                        'sold' => max(0, $product->sold - $trx->quantity),
+                    ]);
+
+                    $warehouseStock = WarehouseStock::where('warehouse_id', $trx->warehouse_id)
+                        ->where('product_id', $product->id)
+                        ->first();
+
+                    if ($warehouseStock) {
+                        $warehouseStock->current_stock = max(0, $warehouseStock->current_stock - $trx->quantity);
+                        $warehouseStock->save();
+                    }
+                });
             }
 
-            $log->create([
+            LogActivity::create([
                 'user_id' => auth()->user()->id,
                 'warehouse_id' => $journal->warehouse_id,
                 'activity' => 'Deleted Journal',
-                'description' => 'Deleted Journal with ID: ' . $journal->id . ' (' . $journal->description . ' from ' . $journal->cred->acc_name . ' to ' . $journal->debt->acc_name . ' with amount: ' . number_format($journal->amount, 0, ',', '.') . ' and fee amount: ' . number_format($journal->fee_amount, 0, ',', '.') . ')',
+                'description' => 'Deleted Journal ID: ' . $journal->id .
+                    ' (' . $journal->description .
+                    ' from ' . optional($journal->cred)->acc_name .
+                    ' to ' . optional($journal->debt)->acc_name .
+                    ' amount: ' . number_format($journal->amount, 0, ',', '.') .
+                    ', fee: ' . number_format($journal->fee_amount, 0, ',', '.') . ')',
             ]);
 
             DB::commit();
+
             return response()->json([
                 'success' => true,
-                'message' => 'Journal with ID: ' . $journal->id . ' deleted successfully'
+                'message' => 'Journal deleted successfully'
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            // Flash an error message
             Log::error($e->getMessage());
             return response()->json([
                 'success' => false,
@@ -175,6 +203,7 @@ class JournalController extends Controller
             ]);
         }
     }
+
 
     public function createTransfer(Request $request)
     {
