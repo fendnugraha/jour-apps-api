@@ -133,6 +133,9 @@ class Product extends Model
     public static function updateCostAndStock($id, $newQty, $newCost, $warehouse_id)
     {
         $product = Product::find($id);
+        if ($product->category === 'Deposit') {
+            return;
+        }
 
         //update Stock
         $product_log = Transaction::where('product_id', $product->id)->sum('quantity');
