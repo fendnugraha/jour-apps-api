@@ -240,10 +240,12 @@ class TransactionController extends Controller
 
                     $product_log = $transaction->where('product_id', $product->id)->sum('quantity');
                     $end_Stock = $product->stock + $product_log;
-                    Product::where('id', $product->id)->update([
-                        'end_Stock' => $end_Stock,
-                        'price' => $item['price'],
-                    ]);
+                    if (!$product->category === 'Deposit') {
+                        Product::where('id', $product->id)->update([
+                            'end_Stock' => $end_Stock,
+                            'price' => $item['price'],
+                        ]);
+                    }
 
                     $updateWarehouseStock = WarehouseStock::where('warehouse_id', $warehouseId)->where('product_id', $product->id)->first();
                     $updateCurrentStock = $transaction->where('product_id', $product->id)->where('warehouse_id', $warehouseId)->sum('quantity');
