@@ -218,7 +218,7 @@ class TransactionController extends Controller
                 $this->_addTransactionToJournal($request->dateIssued, $request->transaction_type, $invoice, $description, $price, $modal, $request->paymentAccountID, $userId, $warehouseId);
 
                 Transaction::create([
-                    'date_issued' => now(),
+                    'date_issued' => $request->dateIssued ?? now(),
                     'invoice' => $invoice,
                     'product_id' => $item['id'],
                     'quantity' => $request->transaction_type == 'Sales' ? ($item['category'] === 'Deposit' ? $item['cost'] * -1 : $item['quantity'] * -1) : $item['quantity'],
