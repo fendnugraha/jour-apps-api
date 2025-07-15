@@ -69,7 +69,7 @@ class Product extends Model
         return true;
     }
 
-    public static function updateWarehouseStock($id, $warehouse_id)
+    public static function updateWarehouseStock($id, $warehouse_id): void
     {
         $product = Product::find($id);
         $warehouseStock = WarehouseStock::where('warehouse_id', $warehouse_id)->where('product_id', $product->id)->first();
@@ -130,41 +130,45 @@ class Product extends Model
     }
 
 
-    public static function updateCostAndStock($id, $newQty, $newStock, $newCost, $warehouse_id)
+    public static function updateCostAndStock($id, $newQty, $newCost, $warehouse_id)
     {
         $product = Product::find($id);
 
-        $initial_stock = $product->end_stock;
-        $initial_cost = $product->cost;
-        $initTotal = $initial_stock * $initial_cost;
-
-        $newTotal = $newStock * $newCost;
-
-        $updatedCost = ($initTotal + $newTotal) / ($initial_stock + $newStock);
-
+        //update Stock
         $product_log = Transaction::where('product_id', $product->id)->sum('quantity');
-        $end_Stock = $product->stock + $product_log;
-        Product::where('id', $product->id)->update([
-            'end_Stock' => $end_Stock,
-            'cost' => $updatedCost,
-        ]);
+        $end_Stock = $product->end_stock + $newQty;
 
-        $updateWarehouseStock = WarehouseStock::where('warehouse_id', $warehouse_id)->where('product_id', $product->id)->first();
-        if ($updateWarehouseStock) {
-            $updateWarehouseStock->current_stock += $newQty;
-            $updateWarehouseStock->save();
-        } else {
-            $warehouseStock = new WarehouseStock();
-            $warehouseStock->warehouse_id = $warehouse_id;
-            $warehouseStock->product_id = $product->id;
-            $warehouseStock->init_stock = 0;
-            $warehouseStock->current_stock = $newQty;
-            $warehouseStock->save();
+        DB::beginTransaction();
+        try {
+            Product::where('id', $product->id)->update([
+                'end_Stock' => $end_Stock,
+            ]);
+
+            $updateWarehouseStock = WarehouseStock::where('warehouse_id', $warehouse_id)->where('product_id', $product->id)->first();
+            if ($updateWarehouseStock) {
+                $updateWarehouseStock->current_stock += $newQty;
+                $updateWarehouseStock->save();
+            } else {
+                $warehouseStock = new WarehouseStock();
+                $warehouseStock->warehouse_id = $warehouse_id;
+                $warehouseStock->product_id = $product->id;
+                $warehouseStock->current_stock = $newQty;
+                $warehouseStock->save();
+            }
+
+            //update cost
+            $initSumStock = $product->end_stock * $product->cost;
+            $newSumStock = $newQty * $newCost;
+            $newCost = ($initSumStock + $newSumStock) / ($end_Stock === 0 ? 1 : $end_Stock);
+            Product::where('id', $product->id)->update([
+                'cost' => $newCost,
+            ]);
+
+            DB::commit();
+            return true;
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return false;
         }
-
-        return $data = [
-            'updatedCost' => $updatedCost,
-            'end_Stock' => $end_Stock
-        ];
     }
 }

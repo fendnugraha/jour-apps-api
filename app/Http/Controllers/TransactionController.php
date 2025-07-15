@@ -126,7 +126,7 @@ class TransactionController extends Controller
                         $warehouseStock->save();
                     }
                 } else {
-                    Product::updateCostAndStock($item['id'], $item['quantity'], $item['quantity'], $item['price'], $warehouseId);
+                    Product::updateCostAndStock($item['id'], $item['quantity'], $item['price'], $warehouseId);
                 }
             }
 
@@ -213,7 +213,7 @@ class TransactionController extends Controller
                 $cost = $item['category'] === 'Deposit' ? $item['cost'] : Product::find($item['id'])->cost;
                 $modal = $cost * $item['quantity'];
 
-                $description = $request->transaction_type == 'Sales' ? "Penjualan Barang & Jasa" : "Pembelian Inventory Stock";
+                $description = $request->transaction_type == 'Sales' ? "Penjualan " . $item['name'] . " (Product ID:" . $item['id'] . ")" : "Pembelian " . $item['name'] . " (Product ID:" . $item['id'] . ")";
 
                 $this->_addTransactionToJournal($request->dateIssued, $request->transaction_type, $invoice, $description, $price, $modal, $request->paymentAccountID, $userId, $warehouseId);
 
@@ -259,7 +259,7 @@ class TransactionController extends Controller
                         $warehouseStock->save();
                     }
                 } else {
-                    Product::updateCostAndStock($item['id'], $item['quantity'], $item['quantity'], $item['price'], $warehouseId);
+                    Product::updateCostAndStock($item['id'], $item['quantity'], $item['price'], $warehouseId);
                 }
             }
 
@@ -331,46 +331,27 @@ class TransactionController extends Controller
                 'message' => 'Transaction not found'
             ], 404);
         }
-        $log = new LogActivity();
 
         DB::beginTransaction();
         try {
             $transaction->delete();
-            $journal = Journal::where('invoice', $transaction->invoice)->first();
-            if ($journal) {
-                $journal->delete();
-            }
-            //Update product stock
-            $product = Product::find($transaction->product_id);
-            $product_log = Transaction::where('product_id', $product->id)->sum('quantity');
-            $end_Stock = $product->stock + $product_log;
-            Product::where('id', $product->id)->update([
-                'end_Stock' => $end_Stock,
-                'sold' => $product->sold + $transaction->quantity
-            ]);
+            $invoice = $transaction->invoice;
+            $product_id = $transaction->product_id;
 
-            $updateWarehouseStock = WarehouseStock::where('warehouse_id', $transaction->warehouse_id)->where('product_id', $product->id)->first();
-            if ($updateWarehouseStock) {
-                $updateWarehouseStock->current_stock -= $transaction->quantity;
-                $updateWarehouseStock->save();
-            }
-            $qty = $transaction->quantity > 0 ? $transaction->quantity : $transaction->quantity * -1;
-            $log->create([
-                'user_id' => auth()->user()->id,
-                'warehouse_id' => $transaction->warehouse_id,
-                'activity' => 'Deleted Transaction',
-                'description' => 'Deleted Transaction with ID: ' . $transaction->id . ' by ' . auth()->user()->name . ' (' . $transaction->product->name . ' with quantity: ' . $qty . ')',
-            ]);
+            // Delete journal
+            Journal::where('invoice', $invoice)->where('description', 'like', '%(Product ID:' . $product_id . ')%')->delete();
+
+            // Update product stock
+            Product::updateCostAndStock($product_id, -$transaction->quantity, $transaction->cost, $transaction->warehouse_id);
 
             DB::commit();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Transaction deleted successfully'
-            ], 200);
+            ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            // Flash an error message
             Log::error($e->getMessage());
             return response()->json([
                 'success' => false,
