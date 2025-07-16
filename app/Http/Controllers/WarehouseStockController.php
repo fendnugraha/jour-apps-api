@@ -87,7 +87,7 @@ class WarehouseStockController extends Controller
      */
     public function show(string $id)
     {
-        $warehouseStock = WarehouseStock::with(['product', 'warehouse'])->find($id);
+        $warehouseStock = WarehouseStock::with(['product.transactions', 'warehouse'])->find($id);
 
         return new AccountResource($warehouseStock, true, "Successfully fetched warehouse stock");
     }
