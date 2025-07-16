@@ -64,10 +64,9 @@ class ProductController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Product $product, Request $request)
+    public function show(Product $product)
     {
         $product->load([
-            'transactions' => fn($query) => $query->where('warehouse_id', $request->warehouse_id),
             'warehouseStock',
         ]);
 

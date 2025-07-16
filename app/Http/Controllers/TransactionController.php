@@ -391,4 +391,26 @@ class TransactionController extends Controller
 
         return new AccountResource($transactions, true, "Successfully fetched transactions");
     }
+
+    public function getTrxByProductId($productId, $startDate, $endDate, Request $request)
+    {
+        $startDate = $startDate ? Carbon::parse($startDate)->startOfMonth() : Carbon::now()->startOfMonth();
+        $endDate = $endDate ? Carbon::parse($endDate)->endOfMonth() : Carbon::now()->endOfMonth();
+
+        $product = Product::with('warehouseStock')->find($productId);
+
+        $transactions = Transaction::with(['product', 'contact'])
+            ->whereBetween('date_issued', [$startDate, $endDate])
+            ->where('product_id', $productId)
+            ->when($request->warehouse_id !== "all", fn($query) => $query->where('warehouse_id', $request->warehouse_id))
+            ->orderBy('date_issued', 'desc')
+            ->paginate(10);
+
+        $data = [
+            'transactions' => $transactions,
+            'product' => $product
+        ];
+
+        return new AccountResource($data, true, "Successfully fetched transactions");
+    }
 }
