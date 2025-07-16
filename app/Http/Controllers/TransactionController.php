@@ -345,6 +345,7 @@ class TransactionController extends Controller
 
             // Update product stock
             Product::updateCostAndStock($product_id, -$transaction->quantity, $transaction->cost, $transaction->warehouse_id);
+            Product::updateWarehouseStock($product_id, $transaction->warehouse_id);
 
             DB::commit();
 

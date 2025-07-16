@@ -151,28 +151,12 @@ class JournalController extends Controller
 
             if ($transactionsExist) {
                 $transaction->each(function ($trx) {
-                    $trx->delete();
                     $product = Product::find($trx->product_id);
-                    if (!$product) {
-                        throw new \Exception("Produk tidak ditemukan.");
+
+                    if ($product) {
+                        $product->updateWarehouseStock($trx->product_id, $trx->warehouse_id);
                     }
-
-                    $product_log = Transaction::where('product_id', $product->id)->sum('quantity');
-                    $end_Stock = $product->stock + $trx->quantity;
-
-                    $product->update([
-                        'end_Stock' => $end_Stock,
-                        'sold' => max(0, $product->sold - $trx->quantity),
-                    ]);
-
-                    $warehouseStock = WarehouseStock::where('warehouse_id', $trx->warehouse_id)
-                        ->where('product_id', $product->id)
-                        ->first();
-
-                    if ($warehouseStock) {
-                        $warehouseStock->current_stock = max(0, $warehouseStock->current_stock - $trx->quantity);
-                        $warehouseStock->save();
-                    }
+                    $trx->delete();
                 });
             }
 
