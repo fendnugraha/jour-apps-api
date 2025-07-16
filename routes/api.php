@@ -87,8 +87,9 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
 
     //warehouseStock
 
-    Route::get('warehouse-stocks/{warehouse}', [WarehouseStockController::class, 'index']);
-    Route::post('warehouse-stocks', [WarehouseStockController::class, 'store']);
-    Route::put('warehouse-stocks/{id}', [WarehouseStockController::class, 'update']);
-    Route::delete('warehouse-stocks/{id}', [WarehouseStockController::class, 'destroy']);
+    Route::apiResource('warehouse-stocks', WarehouseStockController::class);
+    Route::get('get-stocks-by-warehouse/{warehouse}', [WarehouseStockController::class, 'getStocksByWarehouse']);
+    Route::get('sync-stock', [WarehouseStockController::class, 'syncStock']);
+    Route::get('sync-all-stock', [WarehouseStockController::class, 'syncAllStock']);
+    Route::get('sync-all-stock-warehouse', [WarehouseStockController::class, 'syncAllStockWarehouse']);
 });

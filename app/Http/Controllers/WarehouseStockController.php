@@ -14,10 +14,10 @@ class WarehouseStockController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index($warehouse = "All")
+    public function index(Request $request)
     {
         $warehouseStocks = WarehouseStock::with('product')
-            ->where(fn($query) => $warehouse == "All" ? $query : $query->where('warehouse_id', $warehouse))
+            ->where(fn($query) => $request->warehouse == "All" ? $query : $query->where('warehouse_id', $request->warehouse))
             ->get();
 
         return new AccountResource($warehouseStocks, true, "Successfully fetched warehouse stocks");
@@ -87,7 +87,9 @@ class WarehouseStockController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $warehouseStock = WarehouseStock::with(['product', 'warehouse'])->find($id);
+
+        return new AccountResource($warehouseStock, true, "Successfully fetched warehouse stock");
     }
 
     /**
@@ -112,5 +114,53 @@ class WarehouseStockController extends Controller
     public function destroy(string $id)
     {
         //
+    }
+
+    public function getStocksByWarehouse($warehouseId)
+    {
+        $warehouseStocks = WarehouseStock::with('product')
+            ->where(fn($query) => $warehouseId == "All" ? $query : $query->where('warehouse_id', $warehouseId))
+            ->get();
+
+        return new AccountResource($warehouseStocks, true, "Successfully fetched warehouse stocks");
+    }
+
+    public function syncStock(Request $request)
+    {
+        $request->validate([
+            'warehouse_id' => 'required|exists:warehouses,id',
+            'product_id' => 'required|exists:products,id',
+        ]);
+
+        Product::updateWarehouseStock($request->product_id, $request->warehouse_id);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Warehouse stock synced successfully',
+        ]);
+    }
+
+    public function syncAllStock(Request $request)
+    {
+        Product::updateAllWarehouseStock();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'All warehouse stocks synced successfully',
+        ]);
+    }
+
+    public function syncAllStockWarehouse(Request $request)
+    {
+        $request->validate([
+            'warehouse_id' => 'required|exists:warehouses,id',
+        ]);
+
+        Product::udpateAllStockInWarehouse($request->warehouse_id);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'All warehouse stocks synced successfully',
+        ]);
     }
 }

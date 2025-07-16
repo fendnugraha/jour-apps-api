@@ -89,6 +89,34 @@ class Product extends Model
         }
     }
 
+    public static function updateAllWarehouseStock(): void
+    {
+        $products = Product::all();
+        foreach ($products as $product) {
+            $warehouseStocks = WarehouseStock::where('product_id', $product->id)->get();
+            $totalCurrentStock = 0;
+            foreach ($warehouseStocks as $warehouseStock) {
+                $product_log = Transaction::where('product_id', $product->id)->where('warehouse_id', $warehouseStock->warehouse_id)->sum('quantity');
+                $newEndStock = $warehouseStock->init_stock + $product_log;
+                $warehouseStock->current_stock = $newEndStock;
+                $warehouseStock->save();
+
+                $totalCurrentStock += $warehouseStock->current_stock;
+            }
+
+            $product->end_stock = $totalCurrentStock;
+            $product->save();
+        }
+    }
+
+    public static function udpateAllStockInWarehouse($warehouse_id): void
+    {
+        $products = Product::all();
+        foreach ($products as $product) {
+            self::updateWarehouseStock($product->id, $warehouse_id);
+        }
+    }
+
     public static function updateCost($id, $condition = [])
     {
         $product = Product::find($id);
