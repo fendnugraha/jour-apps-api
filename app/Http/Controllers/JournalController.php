@@ -518,8 +518,8 @@ class JournalController extends Controller
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
 
         $journals = Journal::with(['debt', 'cred', 'transaction.product', 'user', 'finance.contact'])
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->orderBy('created_at', 'desc')
+            ->whereBetween('date_issued', [$startDate, $endDate])
+            ->orderBy('date_issued', 'desc')
             ->get();
 
         return new AccountResource($journals, true, "Successfully fetched journals");

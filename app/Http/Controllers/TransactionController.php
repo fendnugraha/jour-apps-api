@@ -250,7 +250,7 @@ class TransactionController extends Controller
                     $updateWarehouseStock = WarehouseStock::where('warehouse_id', $warehouseId)->where('product_id', $product->id)->first();
                     $updateCurrentStock = $transaction->where('product_id', $product->id)->where('warehouse_id', $warehouseId)->sum('quantity');
                     if ($updateWarehouseStock) {
-                        $updateWarehouseStock->current_stock = $updateCurrentStock;
+                        $updateWarehouseStock->current_stock += $updateCurrentStock;
                         $updateWarehouseStock->save();
                     } else {
                         $warehouseStock = new WarehouseStock();

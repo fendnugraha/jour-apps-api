@@ -133,9 +133,6 @@ class Product extends Model
     public static function updateCostAndStock($id, $newQty, $newCost, $warehouse_id)
     {
         $product = Product::find($id);
-        if ($product->category === 'Deposit') {
-            return;
-        }
 
         //update Stock
         $product_log = Transaction::where('product_id', $product->id)->sum('quantity');
@@ -163,9 +160,12 @@ class Product extends Model
             $initSumStock = $product->end_stock * $product->cost;
             $newSumStock = $newQty * $newCost;
             $newCost = ($initSumStock + $newSumStock) / ($end_Stock === 0 ? 1 : $end_Stock);
-            Product::where('id', $product->id)->update([
-                'cost' => $newCost,
-            ]);
+
+            if (!$product->category === 'Deposit') {
+                Product::where('id', $product->id)->update([
+                    'cost' => $newCost,
+                ]);
+            }
 
             DB::commit();
             return true;
