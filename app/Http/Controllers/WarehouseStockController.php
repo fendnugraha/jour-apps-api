@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\Transaction;
 use Illuminate\Http\Request;
 use App\Models\WarehouseStock;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Http\Resources\AccountResource;
+use App\Models\Journal;
 
 class WarehouseStockController extends Controller
 {
@@ -56,10 +58,41 @@ class WarehouseStockController extends Controller
                     'init_stock' => $request->init_stock,
                     'current_stock' => $request->init_stock, // Optional: sync awal
                 ]);
+
+                Transaction::create([
+                    'date_issued' => now(),
+                    'invoice' => 'INITIAL STOCK PRODUCT ID ' . $request->product_id,
+                    'product_id' => $request->product_id,
+                    'quantity' => $request->init_stock,
+                    'price' => 0,
+                    'cost' => $request->cost,
+                    'transaction_type' => 'Initial Stock',
+                    'contact_id' => 1,
+                    'warehouse_id' => $request->warehouse_id,
+                    'user_id' => auth()->user()->id
+                ]);
+
+                Journal::create([
+                    'invoice' => 'INITIAL STOCK PRODUCT ID ' . $request->product_id,  // Menggunakan metode statis untuk invoice
+                    'date_issued' => now(),
+                    'debt_code' => 6,
+                    'cred_code' => 10,
+                    'amount' => $request->init_stock * $request->cost,
+                    'fee_amount' => 0,
+                    'trx_type' => 'Penjualan Barang',
+                    'description' => 'Initial Stock Product ID ' . $request->product_id,
+                    'user_id' => auth()->user()->id,
+                    'warehouse_id' => $request->warehouse_id
+                ]);
             } else {
                 $warehouseStock->update([
                     'init_stock' => $request->init_stock,
                     // optionally sync current_stock too
+                ]);
+
+                Transaction::update([
+                    'cost' => $request->cost,
+                    'quantity' => $request->init_stock
                 ]);
 
                 Product::updateWarehouseStock($request->product_id, $request->warehouse_id);

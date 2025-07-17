@@ -233,14 +233,15 @@ class TransactionController extends Controller
                 $product = Product::find($item['id']);
                 $transaction = new Transaction();
 
-                if ($request->transaction_type == 'Sales') {
+                if ($request->transaction_type === 'Sales') {
+                    Log::info("sales");
                     $quantity = $product->category === 'Deposit' ? $item['cost'] : $item['quantity'];
                     $sold = Product::find($item['id'])->sold + $quantity;
                     Product::find($item['id'])->update(['sold' => $sold]);
 
                     $product_log = $transaction->where('product_id', $product->id)->sum('quantity');
                     $end_Stock = $product->stock + $product_log;
-                    if (!$product->category === 'Deposit') {
+                    if ($product->category !== 'Deposit') {
                         Product::where('id', $product->id)->update([
                             'end_Stock' => $end_Stock,
                             'price' => $item['price'],
@@ -261,7 +262,8 @@ class TransactionController extends Controller
                         $warehouseStock->save();
                     }
                 } else {
-                    Product::updateCostAndStock($item['id'], $item['quantity'], $item['price'], $warehouseId);
+                    Log::info("pembelian");
+                    Product::updateCostAndStock($item['id'], $item['quantity'], $warehouseId);
                 }
             }
 
@@ -336,7 +338,6 @@ class TransactionController extends Controller
 
         DB::beginTransaction();
         try {
-            $transaction->delete();
             $invoice = $transaction->invoice;
             $product_id = $transaction->product_id;
 
@@ -346,6 +347,7 @@ class TransactionController extends Controller
             // Update product stock
             Product::updateCostAndStock($product_id, -$transaction->quantity, $transaction->cost, $transaction->warehouse_id);
             Product::updateWarehouseStock($product_id, $transaction->warehouse_id);
+            $transaction->delete();
 
             DB::commit();
 

@@ -6,6 +6,7 @@ use App\Models\Transaction;
 use App\Models\WarehouseStock;
 use App\Models\ProductCategory;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
@@ -49,7 +50,7 @@ class Product extends Model
     {
         $product = Product::find($id);
         $product_log = Transaction::where('product_id', $product->id)->sum('quantity');
-        $end_Stock = $product->end_stock + $newQty;
+        $end_Stock = $newQty;
         Product::where('id', $product->id)->update([
             'end_Stock' => $end_Stock,
         ]);
@@ -74,7 +75,7 @@ class Product extends Model
         $product = Product::find($id);
         $warehouseStock = WarehouseStock::where('warehouse_id', $warehouse_id)->where('product_id', $product->id)->first();
         $product_log = Transaction::where('product_id', $product->id)->where('warehouse_id', $warehouse_id)->sum('quantity');
-        $newEndStock = $warehouseStock->init_stock + $product_log;
+        $newEndStock = $product_log;
 
         if ($warehouseStock) {
             $warehouseStock->current_stock = $newEndStock;
@@ -97,7 +98,7 @@ class Product extends Model
             $totalCurrentStock = 0;
             foreach ($warehouseStocks as $warehouseStock) {
                 $product_log = Transaction::where('product_id', $product->id)->where('warehouse_id', $warehouseStock->warehouse_id)->sum('quantity');
-                $newEndStock = $warehouseStock->init_stock + $product_log;
+                $newEndStock = $product_log;
                 $warehouseStock->current_stock = $newEndStock;
                 $warehouseStock->save();
 
@@ -158,13 +159,15 @@ class Product extends Model
     }
 
 
-    public static function updateCostAndStock($id, $newQty, $newCost, $warehouse_id)
+    public static function updateCostAndStock($id, $newQty, $warehouse_id)
     {
         $product = Product::find($id);
 
         //update Stock
-        $product_log = Transaction::where('product_id', $product->id)->sum('quantity');
-        $end_Stock = $product->end_stock + $newQty;
+        $product_log = Transaction::where('product_id', $product->id)
+            ->selectRaw('SUM(quantity) as total_qty, SUM(quantity * cost) as total_value')
+            ->first();
+        $end_Stock = $newQty;
 
         DB::beginTransaction();
         try {
@@ -185,20 +188,22 @@ class Product extends Model
             }
 
             //update cost
-            $initSumStock = $product->end_stock * $product->cost;
-            $newSumStock = $newQty * $newCost;
-            $newCost = ($initSumStock + $newSumStock) / ($end_Stock === 0 ? 1 : $end_Stock);
 
-            if (!$product->category === 'Deposit') {
+            $newCost = $product_log->total_value / $product_log->total_qty;
+
+            if ($product->category !== 'Deposit') {
+                Log::info($newCost);
                 Product::where('id', $product->id)->update([
                     'cost' => $newCost,
                 ]);
             }
 
             DB::commit();
+            Log::info($newCost);
             return true;
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error($e->getMessage());
             return false;
         }
     }

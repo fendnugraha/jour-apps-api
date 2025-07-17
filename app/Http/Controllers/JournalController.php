@@ -150,13 +150,17 @@ class JournalController extends Controller
             Journal::where('invoice', $invoice)->delete();
 
             if ($transactionsExist) {
+                Log::info($transaction);
+
                 $transaction->each(function ($trx) {
                     $product = Product::find($trx->product_id);
+                    $trx->delete();
 
                     if ($product) {
+                        Log::info($product);
+                        $product->updateCostAndStock($trx->product_id, -$trx->quantity, $trx->warehouse_id);
                         $product->updateWarehouseStock($trx->product_id, $trx->warehouse_id);
                     }
-                    $trx->delete();
                 });
             }
 
