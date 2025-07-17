@@ -51,6 +51,7 @@ class TransactionController extends Controller
             'cart' => 'required|array',
             'transaction_type' => 'required|string',
         ]);
+
         $warehouseId = auth()->user()->role->warehouse_id;
         $userId = auth()->user()->id;
 
