@@ -57,8 +57,7 @@ class WarehouseStockController extends Controller
                 ->where('transaction_type', 'Initial Stock')
                 ->first();
 
-            $journal = Journal::where('product_id', $request->product_id)
-                ->where('warehouse_id', $request->warehouse_id)
+            $journal = Journal::where('warehouse_id', $request->warehouse_id)
                 ->where('invoice', 'like', '%INITIAL STOCK PRODUCT ID ' . $request->product_id . ' WAREHOUSE ID' . $request->warehouse_id)
                 ->first();
 
