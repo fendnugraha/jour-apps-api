@@ -437,7 +437,7 @@ class TransactionController extends Controller
             ->where('transactions.date_issued', '<=', $endDate)
             ->where('transactions.warehouse_id', $warehouse)
             ->groupBy('transactions.product_id', 'products.name')
-            ->orderBy('products.name', 'desc')
+            ->orderBy('products.name', 'asc')
             ->get();
 
 
