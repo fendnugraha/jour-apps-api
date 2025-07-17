@@ -422,17 +422,23 @@ class TransactionController extends Controller
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
 
         $transactions = Transaction::selectRaw('
-                products.name as product_name,
-                transactions.product_id,
-                SUM(transactions.quantity) as total_quantity,
-                SUM(transactions.cost * transactions.quantity) as total_cost,
-                (SUM(transactions.cost * transactions.quantity) / NULLIF(SUM(transactions.quantity), 0)) as average_cost
-            ')
+    products.name as product_name,
+    transactions.product_id,
+    SUM(transactions.quantity) as total_quantity_all,
+    SUM(CASE WHEN transactions.transaction_type IN ("Purchase", "Initial Stock") THEN transactions.quantity ELSE 0 END) as total_quantity,
+    SUM(CASE WHEN transactions.transaction_type IN ("Purchase", "Initial Stock") THEN transactions.cost * transactions.quantity ELSE 0 END) as total_cost,
+    (
+        SUM(CASE WHEN transactions.transaction_type IN ("Purchase", "Initial Stock") THEN transactions.cost * transactions.quantity ELSE 0 END)
+        / NULLIF(SUM(CASE WHEN transactions.transaction_type IN ("Purchase", "Initial Stock") THEN transactions.quantity ELSE 0 END), 0)
+    ) as average_cost
+')
             ->join('products', 'transactions.product_id', '=', 'products.id')
             ->where('transactions.date_issued', '<=', $endDate)
             ->where('transactions.warehouse_id', $warehouse)
             ->groupBy('transactions.product_id', 'products.name')
             ->get();
+
+
 
 
         return new AccountResource($transactions, true, "Successfully fetched transactions");
