@@ -51,17 +51,20 @@ class WarehouseStockController extends Controller
                 ->where('product_id', $request->product_id)
                 ->first();
 
+            $invoice = 'INITIAL STOCK PRODUCT ID ' . $request->product_id . ' WAREHOUSE ID ' . $request->warehouse_id;
+
             if (!$warehouseStock) {
+                // Jika belum ada, buat baru
                 WarehouseStock::create([
                     'warehouse_id' => $request->warehouse_id,
                     'product_id' => $request->product_id,
                     'init_stock' => $request->init_stock,
-                    'current_stock' => $request->init_stock, // Optional: sync awal
+                    'current_stock' => $request->init_stock,
                 ]);
 
                 Transaction::create([
                     'date_issued' => now(),
-                    'invoice' => 'INITIAL STOCK PRODUCT ID ' . $request->product_id,
+                    'invoice' => $invoice,
                     'product_id' => $request->product_id,
                     'quantity' => $request->init_stock,
                     'price' => 0,
@@ -73,27 +76,37 @@ class WarehouseStockController extends Controller
                 ]);
 
                 Journal::create([
-                    'invoice' => 'INITIAL STOCK PRODUCT ID ' . $request->product_id,  // Menggunakan metode statis untuk invoice
+                    'invoice' => $invoice,
                     'date_issued' => now(),
                     'debt_code' => 6,
                     'cred_code' => 10,
                     'amount' => $request->init_stock * $request->cost,
                     'fee_amount' => 0,
                     'trx_type' => 'Penjualan Barang',
-                    'description' => 'Initial Stock Product ID ' . $request->product_id,
+                    'description' => 'Initial Stock Product ID ' . $request->product_id . ' (' . $request->init_stock . ' pcs)',
                     'user_id' => auth()->user()->id,
                     'warehouse_id' => $request->warehouse_id
                 ]);
             } else {
+                // Jika sudah ada, update
                 $warehouseStock->update([
                     'init_stock' => $request->init_stock,
-                    // optionally sync current_stock too
                 ]);
 
-                Transaction::update([
-                    'cost' => $request->cost,
-                    'quantity' => $request->init_stock
-                ]);
+                // Pastikan hanya update transaksi Initial Stock terkait
+                Transaction::where('invoice', $invoice)
+                    ->where('product_id', $request->product_id)
+                    ->where('warehouse_id', $request->warehouse_id)
+                    ->update([
+                        'cost' => $request->cost,
+                        'quantity' => $request->init_stock,
+                    ]);
+
+                Journal::where('invoice', $invoice)
+                    ->where('warehouse_id', $request->warehouse_id)
+                    ->update([
+                        'amount' => $request->init_stock * $request->cost,
+                    ]);
 
                 Product::updateWarehouseStock($request->product_id, $request->warehouse_id);
             }
