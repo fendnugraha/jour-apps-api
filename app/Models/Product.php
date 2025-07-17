@@ -88,6 +88,12 @@ class Product extends Model
             $warehouseStock->current_stock = $newEndStock;
             $warehouseStock->save();
         }
+
+        Log::info("
+            Product: {$product->name}
+            Warehouse: {$warehouseStock->warehouse->name}
+            Quantity: {$warehouseStock->current_stock}
+        ");
     }
 
     public static function updateAllWarehouseStock(): void

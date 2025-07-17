@@ -42,6 +42,7 @@ class WarehouseStockController extends Controller
             'warehouse_id' => 'required|exists:warehouses,id',
             'product_id' => 'required|exists:products,id',
             'init_stock' => 'required|numeric|min:0',
+            'cost' => 'required|numeric|min:0'
         ]);
 
         DB::beginTransaction();
@@ -51,20 +52,19 @@ class WarehouseStockController extends Controller
                 ->where('product_id', $request->product_id)
                 ->first();
 
-            $invoice = 'INITIAL STOCK PRODUCT ID ' . $request->product_id . ' WAREHOUSE ID ' . $request->warehouse_id;
+            $invoice = 'INITIAL STOCK PRODUCT ID ' . $request->product_id . ' WAREHOUSE ID' . $request->warehouse_id;
 
             if (!$warehouseStock) {
-                // Jika belum ada, buat baru
                 WarehouseStock::create([
                     'warehouse_id' => $request->warehouse_id,
                     'product_id' => $request->product_id,
                     'init_stock' => $request->init_stock,
-                    'current_stock' => $request->init_stock,
+                    'current_stock' => $request->init_stock, // Optional: sync awal
                 ]);
 
                 Transaction::create([
                     'date_issued' => now(),
-                    'invoice' => $invoice,
+                    'invoice' => 'INITIAL STOCK PRODUCT ID ' . $request->product_id . ' WAREHOUSE ID' . $request->warehouse_id,
                     'product_id' => $request->product_id,
                     'quantity' => $request->init_stock,
                     'price' => 0,
@@ -76,14 +76,14 @@ class WarehouseStockController extends Controller
                 ]);
 
                 Journal::create([
-                    'invoice' => $invoice,
+                    'invoice' => 'INITIAL STOCK PRODUCT ID ' . $request->product_id . ' WAREHOUSE ID' . $request->warehouse_id,  // Menggunakan metode statis untuk invoice
                     'date_issued' => now(),
                     'debt_code' => 6,
                     'cred_code' => 10,
                     'amount' => $request->init_stock * $request->cost,
                     'fee_amount' => 0,
                     'trx_type' => 'Penjualan Barang',
-                    'description' => 'Initial Stock Product ID ' . $request->product_id . ' (' . $request->init_stock . ' pcs)',
+                    'description' => 'Initial Stock Product ID ' . $request->product_id . ' WAREHOUSE ID' . $request->warehouse_id,
                     'user_id' => auth()->user()->id,
                     'warehouse_id' => $request->warehouse_id
                 ]);
@@ -108,11 +108,11 @@ class WarehouseStockController extends Controller
                         'amount' => $request->init_stock * $request->cost,
                     ]);
 
-                Product::updateWarehouseStock($request->product_id, $request->warehouse_id);
+                Product::updateCostAndStock($request->product_id, $request->init_stock, $request->warehouse_id);
             }
 
             DB::commit();
-
+            Log::info('Warehouse stock updated successfully');
             return response()->json([
                 'success' => true,
                 'message' => 'Warehouse stock updated successfully',
