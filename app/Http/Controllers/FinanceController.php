@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AccountResource;
 use App\Models\AccountBalance;
+use App\Models\Transaction;
 
 class FinanceController extends Controller
 {
@@ -167,15 +168,21 @@ class FinanceController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Pembayaran sudah dilakukan'
-            ]);
+            ], 400);
         }
 
-
-        if ($finance->payment_status == 0 && $finance->payment_nth == 0 && $checkData->count() > 1) {
+        if ($finance->payment_status == 0 && $finance->payment_nth == 0 && $checkData->sum("payment_amount") > 0) {
             return response()->json([
                 'status' => false,
                 'message' => 'Sudah terjadi pembayaran'
-            ]);
+            ], 400);
+        }
+
+        if ($finance->transactions()->exists()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Memiliki transaksi, tidak dapat dihapus'
+            ], 400);
         }
 
         $log = new LogActivity();

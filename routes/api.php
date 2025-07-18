@@ -47,6 +47,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     //contacts
     Route::apiResource('contacts', ContactController::class);
     Route::get('get-all-contacts', [ContactController::class, 'getAllContacts']);
+    Route::get('get-all-contacts-by-type/{type}', [ContactController::class, 'getContactByType']);
 
     Route::apiResource('warehouse', WarehouseController::class);
     Route::get('get-all-warehouses', [WarehouseController::class, 'getAllWarehouses']);

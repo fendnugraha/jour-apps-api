@@ -112,4 +112,10 @@ class ContactController extends Controller
         $contacts = Contact::orderBy('name', 'asc')->get();
         return new AccountResource($contacts, true, "Successfully fetched contacts");
     }
+
+    public function getContactByType($type)
+    {
+        $contacts = Contact::where('type', $type)->orderBy('name', 'asc')->get();
+        return new AccountResource($contacts, true, "Successfully fetched contacts");
+    }
 }

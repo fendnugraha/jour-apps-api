@@ -127,39 +127,17 @@ class Product extends Model
     public static function updateCost($id, $condition = [])
     {
         $product = Product::find($id);
-
-        if (!$product) {
-            return false; // Exit if the product does not exist
-        }
-
-        $transaction = Transaction::select(
-            'product_id',
-            DB::raw('SUM(cost * quantity) as totalCost'),
-            DB::raw('SUM(quantity) as totalQuantity')
-        )
-            ->where('product_id', $product->id)
-            ->where('transaction_type', 'Purchase')
-            ->when(!empty($condition), function ($query) use ($condition) {
-                $query->where($condition);
-            })
-            ->groupBy('product_id')
+        $product_log = Transaction::where('product_id', $product->id)
+            ->selectRaw('SUM(quantity) as total_qty, SUM(quantity * cost) as total_value')
             ->first();
+        $newCost = $product_log->total_value / $product_log->total_qty;
 
-        if (!$transaction || $transaction->totalQuantity == 0) {
-            // No transactions or zero quantity
+        if ($product->category !== 'Deposit') {
+            Log::info($newCost);
             Product::where('id', $product->id)->update([
-                'cost' => 0, // Set cost to 0 or leave unchanged based on requirements
+                'cost' => $newCost,
             ]);
-            return false;
         }
-
-        // Calculate new cost
-        $newCost = $transaction->totalCost / $transaction->totalQuantity;
-
-        // Update the product's cost
-        Product::where('id', $product->id)->update([
-            'cost' => $newCost,
-        ]);
 
         return true;
     }

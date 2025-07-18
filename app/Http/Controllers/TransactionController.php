@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Carbon\Carbon;
+use App\Models\Finance;
 use App\Models\Journal;
 use App\Models\Product;
 use App\Models\LogActivity;
@@ -147,7 +148,7 @@ class TransactionController extends Controller
         }
     }
 
-    private function _addTransactionToJournal($dateIssued, $transaction_type, $invoice, $description, $price, $cost, $paymentAccountID, $userId, $warehouseId)
+    private function _addTransactionToJournal($dateIssued, $transaction_type, $invoice, $description, $price, $cost, $paymentAccountID, $userId, $warehouseId, $paymentMethod = "cash", $contact_id = null)
     {
         if ($transaction_type == 'Sales') {
             Journal::create([
@@ -176,18 +177,53 @@ class TransactionController extends Controller
                 'warehouse_id' => $warehouseId
             ]);
         } else {
-            Journal::create([
-                'invoice' => $invoice,  // Menggunakan metode statis untuk invoice
-                'date_issued' => $dateIssued ?? now(),
-                'debt_code' => 6,
-                'cred_code' => $paymentAccountID,
-                'amount' => $price,
-                'fee_amount' => 0,
-                'trx_type' => 'Pembelian Barang',
-                'description' => $description,
-                'user_id' => $userId,
-                'warehouse_id' => $warehouseId
-            ]);
+
+            if ($paymentMethod != "cash") {
+
+                Finance::create([
+                    'date_issued' => $dateIssued,
+                    'due_date' => Carbon::parse($dateIssued)->addDays(30),
+                    'invoice' => $invoice,
+                    'description' => $description,
+                    'bill_amount' => $price,
+                    'payment_amount' => 0,
+                    'payment_status' => 0,
+                    'payment_nth' => 0,
+                    'finance_type' => 'Payable',
+                    'contact_id' => $contact_id,
+                    'user_id' => auth()->user()->id,
+                    'account_code' => 7
+                ]);
+
+                Journal::create([
+                    'invoice' => $invoice,  // Menggunakan metode statis untuk invoice
+                    'date_issued' => $dateIssued ?? now(),
+                    'debt_code' => 6,
+                    'cred_code' => $paymentAccountID,
+                    'amount' => $price,
+                    'fee_amount' => 0,
+                    'trx_type' => 'Pembelian Barang',
+                    'rcv_pay' => 'Payable',
+                    'payment_status' => 0,
+                    'payment_nth' => 0,
+                    'description' => $description,
+                    'user_id' => $userId,
+                    'warehouse_id' => $warehouseId
+                ]);
+            } else {
+                Journal::create([
+                    'invoice' => $invoice,  // Menggunakan metode statis untuk invoice
+                    'date_issued' => $dateIssued ?? now(),
+                    'debt_code' => 6,
+                    'cred_code' => $paymentAccountID,
+                    'amount' => $price,
+                    'fee_amount' => 0,
+                    'trx_type' => 'Pembelian Barang',
+                    'description' => $description,
+                    'user_id' => $userId,
+                    'warehouse_id' => $warehouseId
+                ]);
+            }
         }
     }
 
@@ -216,7 +252,7 @@ class TransactionController extends Controller
 
                 $description = $request->transaction_type == 'Sales' ? "Penjualan " . $item['name'] . " (Product ID:" . $item['id'] . ")" : "Pembelian " . $item['name'] . " (Product ID:" . $item['id'] . ")";
 
-                $this->_addTransactionToJournal($request->dateIssued, $request->transaction_type, $invoice, $description, $price, $modal, $request->paymentAccountID, $userId, $warehouseId);
+                $this->_addTransactionToJournal($request->dateIssued, $request->transaction_type, $invoice, $description, $price, $modal, $request->paymentAccountID, $userId, $warehouseId, $request->paymentMethod, $request->contactId);
 
                 Transaction::create([
                     'date_issued' => $request->dateIssued ?? now(),
@@ -235,7 +271,6 @@ class TransactionController extends Controller
                 $transaction = new Transaction();
 
                 if ($request->transaction_type === 'Sales') {
-                    Log::info("sales");
                     $quantity = $product->category === 'Deposit' ? $item['cost'] : $item['quantity'];
                     $sold = Product::find($item['id'])->sold + $quantity;
                     Product::find($item['id'])->update(['sold' => $sold]);
@@ -263,7 +298,6 @@ class TransactionController extends Controller
                         $warehouseStock->save();
                     }
                 } else {
-                    Log::info("pembelian");
                     Product::updateCostAndStock($item['id'], $item['quantity'], $warehouseId);
                 }
             }
@@ -320,7 +354,73 @@ class TransactionController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        $transaction = Transaction::find($id);
+        $journal = Journal::where('invoice', $transaction->invoice)->where('description', 'like', '%(Product ID:' . $transaction->product_id . ')%')->get();
+        Log::info($journal);
+
+        $request->validate([
+            'price' => 'required|numeric|min:0',
+            'quantity' => 'required|numeric|min:0',
+        ]);
+        $price = $transaction->transaction_type == 'Sales' ? $request->price : $transaction->price;
+        $cost = $transaction->transaction_type == 'Sales' ? $transaction->cost : $request->price;
+        $quantity = $transaction->transaction_type == 'Sales' ? $request->quantity * -1 : $request->quantity;
+
+        DB::beginTransaction();
+        try {
+            $transaction->update([
+                'price' => $price,
+                'cost' => $cost,
+                'quantity' => $quantity
+            ]);
+
+            if ($transaction->transaction_type == 'Sales') {
+                foreach ($journal as $item) {
+                    if ($item->cred_code == 13) {
+                        $item->update([
+                            'amount' => $price * -$quantity,
+                        ]);
+                    }
+
+                    if ($item->debt_code == 14 && $item->cred_code == 6) {
+                        $item->update([
+                            'amount' => $cost * -$quantity,
+                        ]);
+                    }
+                }
+            } else {
+                foreach ($journal as $item) {
+                    $item->update([
+                        'amount' => $cost * $quantity,
+                    ]);
+                }
+
+                Product::updateCost($transaction->product_id);
+            }
+
+            Log::info(['price' => $price, 'cost' => $cost, 'quantity' => $quantity]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaction updated successfully'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error($e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update transaction'
+            ], 500);
+        }
+
+        if (!$transaction) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Transaction not found'
+            ], 404);
+        }
     }
 
     /**

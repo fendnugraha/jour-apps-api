@@ -142,6 +142,13 @@ class JournalController extends Controller
         $invoice = $journal->invoice;
         Log::info($invoice);
 
+        if ($journal->finance()->count() > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Journal has finance, cannot be deleted',
+            ], 500);
+        }
+
         DB::beginTransaction();
 
         try {
