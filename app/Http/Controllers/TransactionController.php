@@ -236,6 +236,13 @@ class TransactionController extends Controller
             'paymentAccountID' => 'required|exists:chart_of_accounts,id',
         ]);
 
+        if ($request->transaction_type == 'purchase' && $request->paymentMethod != 'cash') {
+            $request->validate([
+                'paymentMethod' => 'required|string',
+                'contactId' => 'required|exists:contacts,id',
+            ]);
+        }
+
         $warehouseId = auth()->user()->role->warehouse_id;
         $userId = auth()->user()->id;
 
