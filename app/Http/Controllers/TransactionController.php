@@ -318,7 +318,7 @@ class TransactionController extends Controller
                     'amount' => $request->feeCustomer,
                     'fee_amount' => 0,
                     'trx_type' => 'Penjualan Barang',
-                    'description' => $description,
+                    'description' => 'Fee Customer',
                     'user_id' => $userId,
                     'warehouse_id' => $warehouseId
                 ]);
