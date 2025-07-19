@@ -139,6 +139,11 @@ class Journal extends Model
         return $this->generate_invoice_journal('PO.BK', 'transactions', [['quantity', '>', 0], ['transaction_type', '=', 'Purchase']]);
     }
 
+    public static function stock_adjustment_invoice()
+    {
+        return self::generate_invoice_journal('SA.BK', 'transactions', [['transaction_type', '=', 'Stock Adjustment']]);
+    }
+
     public static function payable_invoice($contact_id)
     {
         return self::generate_invoice_journal('PY.BK.' . $contact_id, 'payables', [['contact_id', '=', $contact_id], ['payment_nth', '=', 0]]);

@@ -548,9 +548,78 @@ class TransactionController extends Controller
             ->orderBy('products.name', 'asc')
             ->get();
 
+        return new AccountResource($transactions, true, "Successfully fetched transactions");
+    }
 
+    public function getTrxByDate($startDate, $endDate)
+    {
+        $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->startOfDay();
+        $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
 
+        $transactions = Transaction::with(['product', 'contact'])
+            ->whereBetween('date_issued', [$startDate, $endDate])
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         return new AccountResource($transactions, true, "Successfully fetched transactions");
+    }
+
+    public function stockAdjustment(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'warehouse_id' => 'required|exists:warehouses,id',
+            'quantity' => 'required|numeric',
+            'cost' => 'required|numeric',
+            'description' => 'string',
+            'adjustmentType' => 'required|in:in,out',
+            'account_id' => 'required|exists:chart_of_accounts,id',
+            'date' => 'required',
+        ]);
+
+        $invoice = Journal::stock_adjustment_invoice();
+
+        DB::beginTransaction();
+        try {
+            Transaction::create([
+                'date_issued' => $request->date ?? now(),
+                'invoice' => $invoice,
+                'product_id' => $request->product_id,
+                'quantity' => $request->adjustmentType == 'in' ? $request->quantity : $request->quantity * -1,
+                'price' => 0.0,
+                'cost' => $request->cost,
+                'transaction_type' => 'Stock Adjustment',
+                'contact_id' => 1,
+                'warehouse_id' => auth()->user()->role->warehouse_id,
+                'user_id' => auth()->user()->id,
+            ]);
+
+            Journal::create([
+                'invoice' => $invoice,  // Menggunakan metode statis untuk invoice
+                'date_issued' => $request->date ?? now(),
+                'debt_code' => $request->adjustmentType == 'out' ? $request->account_id : 6,
+                'cred_code' => $request->adjustmentType == 'out' ? 6 : $request->account_id,
+                'amount' => $request->quantity * $request->cost,
+                'fee_amount' => 0,
+                'trx_type' => 'Stock Adjustment Product ID (' . $request->product_id . '). Note: ' . $request->description,
+                'description' => 'Fee Customer',
+                'user_id' => auth()->user()->id,
+                'warehouse_id' => auth()->user()->role->warehouse_id,
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Stock adjustment created successfully',
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create stock adjustment',
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 }

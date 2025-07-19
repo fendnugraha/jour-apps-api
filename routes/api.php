@@ -76,6 +76,8 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::post('store-with-deposit', [TransactionController::class, 'storeSalesWithDeposit']);
     Route::get('get-trx-by-product-id/{productId}/{startDate}/{endDate}', [TransactionController::class, 'getTrxByProductId']);
     Route::get('get-trx-all-product-by-warehouse/{warehouse}/{endDate}', [TransactionController::class, 'getTrxAllProductByWarehouse']);
+    Route::get('get-trx-by-date/{startDate}/{endDate}', [TransactionController::class, 'getTrxByDate']);
+    Route::post('stock-adjustment', [TransactionController::class, 'stockAdjustment']);
 
     //Finance
     Route::apiResource('finance', FinanceController::class);
