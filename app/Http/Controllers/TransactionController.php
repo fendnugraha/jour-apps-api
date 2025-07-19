@@ -364,7 +364,7 @@ class TransactionController extends Controller
     {
         $transaction = Transaction::find($id);
         $journal = Journal::where('invoice', $transaction->invoice)->where('description', 'like', '%(Product ID:' . $transaction->product_id . ')%')->get();
-        Log::info($journal);
+        Log::info($transaction->product->category);
 
         $request->validate([
             'price' => 'required|numeric|min:0',
@@ -392,7 +392,7 @@ class TransactionController extends Controller
 
                     if ($item->debt_code == 14 && $item->cred_code == 6) {
                         $item->update([
-                            'amount' => $cost * -$quantity,
+                            'amount' => $transaction->product->category == 'Deposit' ? $cost : $cost * -$quantity,
                         ]);
                     }
                 }
@@ -623,7 +623,7 @@ class TransactionController extends Controller
         }
     }
 
-    private function _recalculateAccountBalance(string $date): void
+    private function _recalculateAccountBalance($date): void
     {
         $dateToString = Carbon::parse($date)->toDateString();
         if ($date < Carbon::now()->startOfDay()) {
