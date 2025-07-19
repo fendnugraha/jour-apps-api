@@ -229,7 +229,6 @@ class TransactionController extends Controller
 
     public function storeSalesWithDeposit(Request $request)
     {
-        return abort(404, 'Tong waka nginput!!');
         $request->validate([
             'cart' => 'required|array',
             'transaction_type' => 'required|string',
