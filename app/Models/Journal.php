@@ -223,6 +223,7 @@ class Journal extends Model
     {
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
         $previousDate = $endDate->copy()->subDay()->toDateString(); // Tanggal untuk mencari saldo awal
+        Log::info("startDate: " . $startDate . " endDate: " . $endDate . " previousDate: " . $previousDate);
 
         $chartOfAccounts = ChartOfAccount::with('account')->get();
 
@@ -237,7 +238,7 @@ class Journal extends Model
         // 3. Pre-fetch total debit aktivitas untuk HANYA tanggal $endDate
         $dailyDebits = Journal::selectRaw('debt_code as account_id, SUM(amount) as total_amount')
             ->whereIn('debt_code', $allAccountIds)
-            ->whereBetween('date_issued', [$previousDate, $endDate]) // HANYA AKTIVITAS HARI INI
+            ->whereBetween('date_issued', [Carbon::parse($previousDate)->endOfDay(), $endDate]) // HANYA AKTIVITAS HARI INI
             ->groupBy('debt_code')
             ->pluck('total_amount', 'account_id')
             ->toArray();
@@ -245,7 +246,7 @@ class Journal extends Model
         // 4. Pre-fetch total credit aktivitas untuk HANYA tanggal $endDate
         $dailyCredits = Journal::selectRaw('cred_code as account_id, SUM(amount) as total_amount')
             ->whereIn('cred_code', $allAccountIds)
-            ->whereBetween('date_issued', [$previousDate, $endDate]) // HANYA AKTIVITAS HARI INI
+            ->whereBetween('date_issued', [Carbon::parse($previousDate)->endOfDay(), $endDate]) // HANYA AKTIVITAS HARI INI
             ->groupBy('cred_code')
             ->pluck('total_amount', 'account_id')
             ->toArray();
@@ -285,6 +286,7 @@ class Journal extends Model
             $creditToday = $dailyCredits[$chartOfAccount->id] ?? 0.00;
 
             // Hitung saldo akhir
+            // $chartOfAccount->balance = $initBalance;
             $chartOfAccount->balance = $initBalance + ($normalBalance === 'D' ? $debitToday - $creditToday : $creditToday - $debitToday);
         }
 
@@ -328,8 +330,7 @@ class Journal extends Model
     public static function _updateBalancesDirectly(string $dateToUpdate): void
     {
         // Parsing tanggal untuk memastikan format yang benar
-        $targetDate = Carbon::parse($dateToUpdate);
-
+        $targetDate = Carbon::parse($dateToUpdate)->endOfDay();
         try {
             $chartOfAccounts = ChartOfAccount::all();
 
@@ -340,12 +341,12 @@ class Journal extends Model
 
                 // Menghitung total debit langsung dari database hingga targetDate
                 $totalDebit = Journal::where('debt_code', $chartOfAccount->id)
-                    ->where('date_issued', '<=', $targetDate->toDateString())
+                    ->where('date_issued', '<=', $targetDate)
                     ->sum('amount');
 
                 // Menghitung total credit langsung dari database hingga targetDate
                 $totalCredit = Journal::where('cred_code', $chartOfAccount->id)
-                    ->where('date_issued', '<=', $targetDate->toDateString())
+                    ->where('date_issued', '<=', $targetDate)
                     ->sum('amount');
 
                 // Mengambil normal balance dari relasi 'account'
