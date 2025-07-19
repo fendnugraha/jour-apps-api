@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\LogActivity;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
+use App\Models\AccountBalance;
 use App\Models\WarehouseStock;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -323,7 +324,7 @@ class TransactionController extends Controller
                     'warehouse_id' => $warehouseId
                 ]);
             }
-
+            $this->_recalculateAccountBalance($request->dateIssued);
             DB::commit();
 
             return response()->json([
@@ -406,7 +407,7 @@ class TransactionController extends Controller
             }
 
             Log::info(['price' => $price, 'cost' => $cost, 'quantity' => $quantity]);
-
+            $this->_recalculateAccountBalance($transaction->date_issued);
             DB::commit();
 
             return response()->json([
@@ -456,7 +457,7 @@ class TransactionController extends Controller
             Product::updateCostAndStock($product_id, -$transaction->quantity, $transaction->cost, $transaction->warehouse_id);
             Product::updateWarehouseStock($product_id, $transaction->warehouse_id);
             $transaction->delete();
-
+            $this->_recalculateAccountBalance($transaction->date_issued);
             DB::commit();
 
             return response()->json([
@@ -605,7 +606,7 @@ class TransactionController extends Controller
                 'user_id' => auth()->user()->id,
                 'warehouse_id' => auth()->user()->role->warehouse_id,
             ]);
-
+            $this->_recalculateAccountBalance($request->date);
             DB::commit();
 
             return response()->json([
@@ -619,6 +620,16 @@ class TransactionController extends Controller
                 'message' => 'Failed to create stock adjustment',
                 'error' => $e->getMessage()
             ]);
+        }
+    }
+
+    private function _recalculateAccountBalance(string $date): void
+    {
+        $dateToString = Carbon::parse($date)->toDateString();
+        if ($date < Carbon::now()->startOfDay()) {
+            Journal::_updateBalancesDirectly($dateToString);
+            AccountBalance::where('balance_date', '>', Carbon::parse($date)->toDateString())->delete();
+            Log::info('Account balances updated successfully for date: ' . $date);
         }
     }
 }
