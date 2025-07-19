@@ -600,8 +600,8 @@ class TransactionController extends Controller
                 'cred_code' => $request->adjustmentType == 'out' ? 6 : $request->account_id,
                 'amount' => $request->quantity * $request->cost,
                 'fee_amount' => 0,
-                'trx_type' => 'Stock Adjustment Product ID (' . $request->product_id . '). Note: ' . $request->description,
-                'description' => 'Fee Customer',
+                'trx_type' => 'Stock Adjustment',
+                'description' => 'Stock Adjustment Product ID (' . $request->product_id . '). Note: ' . $request->description,
                 'user_id' => auth()->user()->id,
                 'warehouse_id' => auth()->user()->role->warehouse_id,
             ]);
