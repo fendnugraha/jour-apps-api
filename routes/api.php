@@ -78,6 +78,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::get('get-trx-all-product-by-warehouse/{warehouse}/{endDate}', [TransactionController::class, 'getTrxAllProductByWarehouse']);
     Route::get('get-trx-by-date/{startDate}/{endDate}', [TransactionController::class, 'getTrxByDate']);
     Route::post('stock-adjustment', [TransactionController::class, 'stockAdjustment']);
+    Route::post('reverse-stock-transaction', [TransactionController::class, 'reverseStockTransaction']);
 
     //Finance
     Route::apiResource('finance', FinanceController::class);

@@ -623,6 +623,109 @@ class TransactionController extends Controller
         }
     }
 
+    public function reverseStockTransaction(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'warehouse_id' => 'required|exists:warehouses,id',
+            'quantity' => 'required|numeric',
+            'cost' => 'required|numeric',
+            'price' => 'required|numeric',
+            'transaction_type' => 'required|in:Sales,Purchase',
+            'description' => 'required|string',
+            'account_id' => 'required|exists:chart_of_accounts,id',
+            'date' => 'required',
+        ]);
+
+        $invoice = Journal::stock_adjustment_invoice();
+        $warehouseId = auth()->user()->role->warehouse_id;
+        $userId = auth()->user()->id;
+
+        $product = Product::find($request->product_id);
+
+        if ($product->category == 'Deposit') {
+            $quantity = $request->transaction_type == 'Sales' ? $request->quantity : $request->quantity * -1;
+            $totalPrice = $request->price;
+            $totalCost = $request->cost * $quantity;
+        } else {
+            $quantity = $request->transaction_type == 'Sales' ? $request->quantity : $request->quantity * -1;
+            $totalPrice = $request->price * $quantity;
+            $totalCost = $request->cost * $quantity;
+        }
+
+        DB::beginTransaction();
+        try {
+            Transaction::create([
+                'date_issued' => $request->date ?? now(),
+                'invoice' => $invoice,
+                'product_id' => $request->product_id,
+                'quantity' => $request->transaction_type == 'Sales' ? $request->quantity : $request->quantity * -1,
+                'price' => $request->transaction_type == 'Sales' ? $request->price : 0,
+                'cost' => $request->cost,
+                'transaction_type' => 'Reversal',
+                'contact_id' => 1,
+                'warehouse_id' => auth()->user()->role->warehouse_id,
+                'user_id' => auth()->user()->id,
+            ]);
+
+            if ($request->transaction_type == 'Sales') {
+                Journal::insert([
+                    [
+                        'invoice' => $invoice,  // Menggunakan metode statis untuk invoice
+                        'date_issued' => $dateIssued ?? now(),
+                        'debt_code' => 13,
+                        'cred_code' => $request->account_id,
+                        'amount' => $totalPrice,
+                        'fee_amount' => 0,
+                        'trx_type' => 'Reversal',
+                        'description' => 'Reversal Product ID (' . $request->product_id . '). Note: ' . $request->description,
+                        'user_id' => $userId,
+                        'warehouse_id' => $warehouseId
+                    ],
+                    [
+                        'invoice' => $invoice,  // Menggunakan metode statis untuk invoice
+                        'date_issued' => $dateIssued ?? now(),
+                        'debt_code' => 6,
+                        'cred_code' => 14,
+                        'amount' => $totalCost,
+                        'fee_amount' => 0,
+                        'trx_type' => 'Reversal',
+                        'description' => 'Reversal Product ID (' . $request->product_id . '). Note: ' . $request->description,
+                        'user_id' => $userId,
+                        'warehouse_id' => $warehouseId
+                    ]
+                ]);
+            } else {
+                Journal::create([
+                    'invoice' => $invoice,  // Menggunakan metode statis untuk invoice
+                    'date_issued' => $dateIssued ?? now(),
+                    'debt_code' => $request->account_id,
+                    'cred_code' => 6,
+                    'amount' => $request->quantity * $request->cost,
+                    'fee_amount' => 0,
+                    'trx_type' => 'Reversal',
+                    'description' => 'Reversal Product ID (' . $request->product_id . '). Note: ' . $request->description,
+                    'user_id' => $userId,
+                    'warehouse_id' => $warehouseId
+                ]);
+            }
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Stock adjustment created successfully',
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error($e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create stock adjustment',
+                'error' => $e->getMessage()
+            ], 400);
+        }
+    }
+
     private function _recalculateAccountBalance($date): void
     {
         $dateToString = Carbon::parse($date)->toDateString();

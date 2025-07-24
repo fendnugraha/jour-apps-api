@@ -117,9 +117,8 @@ class WarehouseStockController extends Controller
                     ->update([
                         'amount' => $request->init_stock * $request->cost,
                     ]);
-
-                Product::updateCostAndStock($request->product_id, $request->init_stock, $request->warehouse_id);
             }
+            Product::updateCost($request->product_id);
 
             DB::commit();
             Log::info('Warehouse stock updated successfully');

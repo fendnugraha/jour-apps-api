@@ -130,8 +130,8 @@ class Product extends Model
         $product_log = Transaction::where('product_id', $product->id)
             ->selectRaw('SUM(quantity) as total_qty, SUM(quantity * cost) as total_value')
             ->first();
-        $newCost = $product_log->total_value / $product_log->total_qty;
-
+        $newCost = $product_log->total_value / ($product_log->total_qty ?? 1);
+        Log::info($newCost);
         if ($product->category !== 'Deposit') {
             Log::info($newCost);
             Product::where('id', $product->id)->update([
@@ -173,7 +173,7 @@ class Product extends Model
 
             //update cost
 
-            $newCost = $product_log->total_value / $product_log->total_qty;
+            $newCost = $product_log->total_value / ($product_log->total_qty ?? 1);
 
             if ($product->category !== 'Deposit') {
                 Log::info($newCost);
