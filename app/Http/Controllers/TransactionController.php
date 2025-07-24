@@ -672,7 +672,7 @@ class TransactionController extends Controller
                 Journal::insert([
                     [
                         'invoice' => $invoice,  // Menggunakan metode statis untuk invoice
-                        'date_issued' => $dateIssued ?? now(),
+                        'date_issued' => $request->date ?? now(),
                         'debt_code' => 13,
                         'cred_code' => $request->account_id,
                         'amount' => $totalPrice,
@@ -684,7 +684,7 @@ class TransactionController extends Controller
                     ],
                     [
                         'invoice' => $invoice,  // Menggunakan metode statis untuk invoice
-                        'date_issued' => $dateIssued ?? now(),
+                        'date_issued' => $request->date ?? now(),
                         'debt_code' => 6,
                         'cred_code' => 14,
                         'amount' => $totalCost,
@@ -698,7 +698,7 @@ class TransactionController extends Controller
             } else {
                 Journal::create([
                     'invoice' => $invoice,  // Menggunakan metode statis untuk invoice
-                    'date_issued' => $dateIssued ?? now(),
+                    'date_issued' => $request->date ?? now(),
                     'debt_code' => $request->account_id,
                     'cred_code' => 6,
                     'amount' => $request->quantity * $request->cost,
@@ -709,6 +709,8 @@ class TransactionController extends Controller
                     'warehouse_id' => $warehouseId
                 ]);
             }
+
+            $this->_recalculateAccountBalance($request->date);
             DB::commit();
 
             return response()->json([
