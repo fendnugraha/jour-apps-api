@@ -279,9 +279,6 @@ class TransactionController extends Controller
                 $transaction = new Transaction();
 
                 if ($request->transaction_type === 'Sales') {
-                    $quantity = $product->category === 'Deposit' ? $item['cost'] : $item['quantity'];
-                    $sold = Product::find($item['id'])->sold + $quantity;
-                    Product::find($item['id'])->update(['sold' => $sold]);
 
                     $product_log = $transaction->where('product_id', $product->id)->sum('quantity');
                     $end_Stock = $product->stock + $product_log;

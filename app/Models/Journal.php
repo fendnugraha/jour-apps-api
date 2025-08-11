@@ -92,7 +92,7 @@ class Journal extends Model
 
     public function finance()
     {
-        return $this->hasMany(Finance::class, 'invoice', 'invoice');
+        return $this->belongsTo(Finance::class);
     }
 
     public static function invoice_journal()
