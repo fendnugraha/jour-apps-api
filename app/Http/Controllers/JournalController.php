@@ -508,17 +508,40 @@ class JournalController extends Controller
 
     public function getJournalByWarehouse($warehouse, $startDate, $endDate)
     {
-        $chartOfAccounts = ChartOfAccount::where('warehouse_id', $warehouse)->pluck('id')->toArray();
         $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->startOfDay();
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
 
+        // Detail journals
         $journals = Journal::with(['debt', 'cred', 'transaction.product', 'user', 'finance.contact'])
+            ->where('warehouse_id', $warehouse)
             ->whereBetween('date_issued', [$startDate, $endDate])
             ->orderBy('date_issued', 'desc')
             ->get();
 
-        return new AccountResource($journals, true, "Successfully fetched journals");
+        // Grouped journals (summary)
+        $journalGroup = Journal::selectRaw('debt_code, cred_code, SUM(amount) as total')
+            ->whereBetween('date_issued', [$startDate, $endDate])
+            ->groupBy('debt_code', 'cred_code')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'debt' => $item->debt,   // relasi ke akun
+                    'cred' => $item->cred,   // relasi ke akun
+                    'total' => $item->total,
+                ];
+            });
+
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Successfully fetched journals',
+            'data' => [
+                'details' => $journals,
+                'summary' => $journalGroup
+            ],
+        ], 200);
     }
+
 
     public function getExpenses($warehouse, $startDate, $endDate)
     {
