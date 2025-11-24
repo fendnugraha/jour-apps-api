@@ -703,12 +703,10 @@ class JournalController extends Controller
 
     public function mutationHistory($account, $startDate, $endDate, Request $request)
     {
-        $journal = new Journal();
         $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->startOfDay();
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
 
-        $journal = new Journal();
-        $journals = $journal->with(['debt.account', 'cred.account', 'warehouse', 'user'])
+        $journals = Journal::with(['debt', 'cred', 'finance.contact:id,name'])
             ->whereBetween('date_issued', [$startDate, $endDate])
             ->where(function ($query) use ($request) {
                 $query->where('invoice', 'like', '%' . $request->search . '%')
@@ -722,12 +720,38 @@ class JournalController extends Controller
             ->orderBy('date_issued', 'desc')
             ->paginate($request->per_page, ['*'], 'mutationHistory');
 
-        $total = $journal->with('debt.account', 'cred.account', 'warehouse', 'user')->where('debt_code', $account)
-            ->whereBetween('date_issued', [$startDate, $endDate])
-            ->orWhere('cred_code', $account)
-            ->WhereBetween('date_issued', [$startDate, $endDate])
+
+        $total = Journal::whereBetween('date_issued', [$startDate, $endDate])
+            ->where(function ($query) use ($account) {
+                $query->where('debt_code', $account)
+                    ->orWhere('cred_code', $account);
+            })
             ->orderBy('date_issued', 'desc')
             ->get();
+
+        $grouped = $total->groupBy(function ($j) use ($account) {
+            return $j->debt_code == $account
+                ? $j->cred_code   // jika posisi akun di debit → lawannya credit
+                : $j->debt_code;  // jika posisi akun di credit → lawannya debit
+        });
+
+        $counterTotals = $grouped->map(function ($items, $counterAcc) use ($account) {
+            return [
+                'counter_account' => $counterAcc,
+
+                // total ketika akun ini berada di debit
+                'debt_total'  => $items->where('debt_code', $account)->sum('amount'),
+
+                // total ketika akun ini berada di credit
+                'credit_total' => $items->where('cred_code', $account)->sum('amount'),
+
+                // total keseluruhan per lawan
+                'total_amount' => $items->sum('amount'),
+
+                // nama akun lawan
+                'counter_name' => optional(ChartOfAccount::find($counterAcc))->acc_name,
+            ];
+        });
 
         $initBalanceDate = Carbon::parse($startDate)->subDay(1)->endOfDay();
 
@@ -736,8 +760,9 @@ class JournalController extends Controller
 
         $data = [
             'journals' => $journals,
-            'initBalance' => $journal->endBalanceBetweenDate($account, '0000-00-00', $initBalanceDate),
-            'endBalance' => $journal->endBalanceBetweenDate($account, '0000-00-00', $endDate),
+            'counterTotals' => $counterTotals->values(),
+            'initBalance' => Journal::endBalanceBetweenDate($account, '0000-00-00', $initBalanceDate),
+            'endBalance' => Journal::endBalanceBetweenDate($account, '0000-00-00', $endDate),
             'debt_total' => $debt_total,
             'cred_total' => $cred_total,
         ];
