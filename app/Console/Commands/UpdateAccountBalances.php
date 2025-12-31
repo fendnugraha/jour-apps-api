@@ -62,7 +62,7 @@ class UpdateAccountBalances extends Command
 
                 AccountBalance::updateOrCreate(
                     [
-                        'account_id' => $chartOfAccount->id, // Menggunakan 'account_id' sesuai migrasi 'account_balances'
+                        'chart_of_account_id' => $chartOfAccount->id, // Menggunakan 'account_id' sesuai migrasi 'account_balances'
                         'balance_date' => $dateToUpdate->toDateString(),
                     ],
                     [
