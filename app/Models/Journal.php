@@ -223,7 +223,7 @@ class Journal extends Model
     {
         $previousDate = $endDate->copy()->subDay()->toDateString(); // Tanggal untuk mencari saldo awal
         // Log::info("startDate: " . $startDate . " endDate: " . $endDate . " previousDate: " . $previousDate);
-        Log::info('endDate String: ' . $endDate->toDateString());
+        Log::info('previousDate String: ' . $previousDate . 'endDate String: ' . $endDate->toDateString());
 
         $chartOfAccounts = ChartOfAccount::with('account')->get();
 
@@ -238,15 +238,16 @@ class Journal extends Model
         // 3. Pre-fetch total debit aktivitas untuk HANYA tanggal $endDate
         $dailyDebits = Journal::selectRaw('debt_code as account_id, SUM(amount) as total_amount')
             ->whereIn('debt_code', $allAccountIds)
-            ->whereDate('date_issued', $endDate->toDateString()) // HANYA AKTIVITAS HARI INI
+            ->whereBetween('date_issued', [$startDate, $endDate]) // HANYA AKTIVITAS HARI INI
             ->groupBy('debt_code')
             ->pluck('total_amount', 'account_id')
             ->toArray();
+        Log::info('dailyDebits: ' . json_encode($dailyDebits));
 
         // 4. Pre-fetch total credit aktivitas untuk HANYA tanggal $endDate
         $dailyCredits = Journal::selectRaw('cred_code as account_id, SUM(amount) as total_amount')
             ->whereIn('cred_code', $allAccountIds)
-            ->whereDate('date_issued', $endDate->toDateString()) // HANYA AKTIVITAS HARI INI
+            ->whereBetween('date_issued', [$startDate, $endDate]) // HANYA AKTIVITAS HARI INI
             ->groupBy('cred_code')
             ->pluck('total_amount', 'account_id')
             ->toArray();
