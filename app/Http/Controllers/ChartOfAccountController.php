@@ -347,6 +347,7 @@ class ChartOfAccountController extends Controller
     {
         $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->startOfDay();
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : now()->endOfDay();
+        Log::info('startDate: ' . $startDate . ', endDate: ' . $endDate);
 
         // Bulan lalu: akhir bulan lalu
         $lastMonth = $endDate->copy()->subMonthNoOverflow()->endOfMonth();
