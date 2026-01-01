@@ -238,7 +238,7 @@ class Journal extends Model
         // 3. Pre-fetch total debit aktivitas untuk HANYA tanggal $endDate
         $dailyDebits = Journal::selectRaw('debt_code as account_id, SUM(amount) as total_amount')
             ->whereIn('debt_code', $allAccountIds)
-            ->whereBetween('date_issued', [Carbon::parse($previousDate)->endOfDay(), $endDate]) // HANYA AKTIVITAS HARI INI
+            ->whereDate('date_issued', $endDate->copy()->toDateString()) // HANYA AKTIVITAS HARI INI
             ->groupBy('debt_code')
             ->pluck('total_amount', 'account_id')
             ->toArray();
@@ -246,7 +246,7 @@ class Journal extends Model
         // 4. Pre-fetch total credit aktivitas untuk HANYA tanggal $endDate
         $dailyCredits = Journal::selectRaw('cred_code as account_id, SUM(amount) as total_amount')
             ->whereIn('cred_code', $allAccountIds)
-            ->whereBetween('date_issued', [Carbon::parse($previousDate)->endOfDay(), $endDate]) // HANYA AKTIVITAS HARI INI
+            ->whereDate('date_issued', $endDate->copy()->toDateString()) // HANYA AKTIVITAS HARI INI
             ->groupBy('cred_code')
             ->pluck('total_amount', 'account_id')
             ->toArray();
@@ -263,6 +263,7 @@ class Journal extends Model
 
         foreach (array_keys($missingDatesToUpdate) as $date) {
             $this->_updateBalancesDirectly($date);
+            Log::info('missingDatesToUpdate updated successfully for date: ' . $date);
         }
 
         if (!empty($missingDatesToUpdate)) {
