@@ -223,7 +223,7 @@ class Journal extends Model
     {
         $previousDate = $endDate->copy()->subDay()->toDateString(); // Tanggal untuk mencari saldo awal
         // Log::info("startDate: " . $startDate . " endDate: " . $endDate . " previousDate: " . $previousDate);
-        Log::info('previousDate String: ' . $previousDate . 'endDate String: ' . $endDate->toDateString());
+        Log::info('previousDate String: ' . $previousDate . ' endDate String: ' . $endDate->toDateString());
 
         $chartOfAccounts = ChartOfAccount::with('account')->get();
 
@@ -266,6 +266,8 @@ class Journal extends Model
             $this->_updateBalancesDirectly($date);
             Log::info('missingDatesToUpdate updated successfully for date: ' . $date);
         }
+
+        Log::info('missingDatesToUpdate: ' . json_encode($missingDatesToUpdate));
 
         if (!empty($missingDatesToUpdate)) {
             $previousDayBalances = AccountBalance::whereIn('chart_of_account_id', $allAccountIds)
@@ -333,6 +335,7 @@ class Journal extends Model
     {
         // Parsing tanggal untuk memastikan format yang benar
         $targetDate = Carbon::parse($dateToUpdate)->endOfDay();
+        Log::info('targetDate: ' . $targetDate);
         try {
             $chartOfAccounts = ChartOfAccount::all();
 

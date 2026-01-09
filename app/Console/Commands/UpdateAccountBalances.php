@@ -32,7 +32,6 @@ class UpdateAccountBalances extends Command
     {
         // Kita menggunakan kemarin agar data hari ini selesai diposting.
         $dateToUpdate = $this->option('date') ? Carbon::parse($this->option('date')) : Carbon::yesterday();
-        Log::info('Updating account balances for date: ' . $dateToUpdate->toDateString());
 
         try {
             // Mengambil semua akun (Chart of Accounts) dengan eager loading relasi 'account'
