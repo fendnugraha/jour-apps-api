@@ -20,17 +20,22 @@ class FinanceController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index($contact, $financeType)
+    public function index($contact, $financeType, Request $request)
     {
+        $endDate = $request->end_date ? Carbon::parse($request->end_date)->endOfDay() : Carbon::now()->endOfDay();
+        Log::info('end date: ' . $endDate);
         $finance = Finance::with(['contact', 'account'])
             ->where(fn($query) => $contact == "All" ?
                 $query : $query->where('contact_id', $contact))
             ->where('finance_type', $financeType)
+            ->where('date_issued', '<=', $endDate)
             ->latest('created_at')
             ->paginate(10)
             ->onEachSide(0);
 
-        $financeGroupByContactId = Finance::with('contact')->selectRaw('contact_id, SUM(bill_amount) as tagihan, SUM(payment_amount) as terbayar, SUM(bill_amount) - SUM(payment_amount) as sisa, finance_type')
+        $financeGroupByContactId = Finance::with('contact')
+            ->selectRaw('contact_id, SUM(bill_amount) as tagihan, SUM(payment_amount) as terbayar, SUM(bill_amount) - SUM(payment_amount) as sisa, finance_type')
+            ->where('date_issued', '<=', $endDate)
             ->groupBy('contact_id', 'finance_type')->get();
 
         $data = [
@@ -230,18 +235,24 @@ class FinanceController extends Controller
         return new AccountResource($finance, true, "Successfully fetched finances");
     }
 
-    public function getFinanceByType($contact, $financeType)
+    public function getFinanceByType($contact, $financeType, Request $request)
     {
+        $endDate = $request->end_date ? Carbon::parse($request->end_date)->endOfDay() : Carbon::now()->endOfDay();
+        Log::info('end date: ' . $endDate);
+
         $finance = Finance::with(['contact', 'account'])
             ->where(fn($query) => $contact == "All" ?
                 $query : $query->where('contact_id', $contact))
             ->where('finance_type', $financeType)
+            ->where('date_issued', '<=', $endDate)
             ->latest('created_at')
             ->paginate(10)
             ->onEachSide(0);
 
         $financeGroupByContactId = Finance::with('contact')
             ->selectRaw('contact_id, SUM(bill_amount) as tagihan, SUM(payment_amount) as terbayar, SUM(bill_amount) - SUM(payment_amount) as sisa, finance_type')
+            ->where('finance_type', $financeType)
+            ->where('date_issued', '<=', $endDate)
             ->groupBy('contact_id', 'finance_type')
             ->get();
 
