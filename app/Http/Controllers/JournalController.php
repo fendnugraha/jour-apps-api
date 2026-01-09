@@ -142,6 +142,15 @@ class JournalController extends Controller
         $invoice = $journal->invoice;
         Log::info($invoice);
 
+        $issued = Carbon::parse($journal->date_issued);
+
+        if (!$issued->isToday() && auth()->user()->role->role !== 'Super Admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghapus journal. Tanggal journal tidak boleh lebih kecil dari tanggal sekarang.'
+            ], 400);
+        }
+
         if ($journal->finance()->count() > 0) {
             return response()->json([
                 'success' => false,
