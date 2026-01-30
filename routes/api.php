@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Finance;
+use App\Models\License;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
@@ -8,6 +9,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\JournalController;
+use App\Http\Controllers\LicenseController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\LogActivityController;
@@ -98,4 +100,16 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::get('sync-stock', [WarehouseStockController::class, 'syncStock']);
     Route::get('sync-all-stock', [WarehouseStockController::class, 'syncAllStock']);
     Route::get('sync-all-stock-warehouse', [WarehouseStockController::class, 'syncAllStockWarehouse']);
+
+    Route::post('license/accept-agreement', [LicenseController::class, 'acceptAgreement']);
+    Route::get('get-license', function () {
+        $license = License::first();
+
+        return response()->json([
+            'client_name' => $license->client_name,
+            'is_active' => $license->is_active,
+            'is_paid' => $license->is_paid,
+            'preriod_end' => $license->period_end,
+        ]);
+    });
 });

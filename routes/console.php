@@ -9,4 +9,5 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('accounting:update-balances')->dailyAt('23:59');
+Schedule::command('license:check-expiration')->dailyAt('00:05');
 // Schedule::command('accounting:update-balances')->everyMinute();
