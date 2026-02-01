@@ -390,6 +390,15 @@ class JournalController extends Controller
             'cred_code.required' => 'Akun kredit harus diisi.',
         ]);
 
+        //if dateIssued is greater than today and user is not super admin, return error
+        $issued = Carbon::parse($request->dateIssued ?? now());
+        if ($issued->isFuture() && auth()->user()->role->role != 'Super Admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tanggal mutasi tidak boleh lebih besar dari tanggal sekarang.'
+            ], 400);
+        }
+
         $description = $request->description ?? 'Mutasi Kas';
         $hqCashAccount = Warehouse::find(1)->chart_of_account_id;
         DB::beginTransaction();
