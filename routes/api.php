@@ -103,13 +103,14 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
 
     Route::post('license/accept-agreement', [LicenseController::class, 'acceptAgreement']);
     Route::get('get-license', function () {
-        $license = License::first();
+        $license = License::with('agreements')->first();
 
         return response()->json([
             'client_name' => $license->client_name,
             'is_active' => $license->is_active,
             'is_paid' => $license->is_paid,
             'preriod_end' => $license->period_end,
+            'agreements' => $license->agreements,
         ]);
     });
 });

@@ -372,8 +372,8 @@ class ChartOfAccountController extends Controller
         $profitLossLastMonth = $calculateProfitLoss($journalCountLastMonth);
 
         $lastMonthEquity = $journalCountLastMonth['equity']->flatten()->sum('balance') + $profitLossLastMonth;
-        // Log::info('lastMonthEquity: ' . $lastMonthEquity);
-        // Log::info('profitLossLastMonth: ' . $profitLossLastMonth);
+        Log::info('lastMonthEquity: ' . $lastMonthEquity);
+        Log::info('profitLossLastMonth: ' . $profitLossLastMonth);
         $currentEquity = $journalCount['equity']->flatten()->sum('balance') + $profitLoss;
         $equityGrowthRate = $calculateGrowthRate($currentEquity, $lastMonthEquity);
         $equityGrowthAmount = $currentEquity - $lastMonthEquity;
