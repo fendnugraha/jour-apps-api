@@ -347,11 +347,11 @@ class ChartOfAccountController extends Controller
     {
         $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->startOfDay();
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : now()->endOfDay();
-        Log::info('startDate: ' . $startDate . ', endDate: ' . $endDate);
+        // Log::info('startDate: ' . $startDate . ', endDate: ' . $endDate);
 
         // Bulan lalu: akhir bulan lalu
         $lastMonth = $endDate->copy()->subMonthNoOverflow()->endOfMonth();
-
+        Log::info('lastMonth: ' . $lastMonth);
         $journal = new Journal();
 
         $calculateProfitLoss = function ($data) {
@@ -368,11 +368,13 @@ class ChartOfAccountController extends Controller
         $profitLoss = $calculateProfitLoss($journalCount);
 
         $journalCountLastMonth = $journal->journalCount($startDate, $lastMonth);
+        // $journalCountLastMonth = $journal->journalCount($lastMonth, $lastMonth);
         $profitLossLastMonth = $calculateProfitLoss($journalCountLastMonth);
 
         $lastMonthEquity = $journalCountLastMonth['equity']->flatten()->sum('balance') + $profitLossLastMonth;
+        // Log::info('lastMonthEquity: ' . $lastMonthEquity);
+        // Log::info('profitLossLastMonth: ' . $profitLossLastMonth);
         $currentEquity = $journalCount['equity']->flatten()->sum('balance') + $profitLoss;
-
         $equityGrowthRate = $calculateGrowthRate($currentEquity, $lastMonthEquity);
         $equityGrowthAmount = $currentEquity - $lastMonthEquity;
 

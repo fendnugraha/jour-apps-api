@@ -223,7 +223,10 @@ class Journal extends Model
     {
         $previousDate = $endDate->copy()->subDay()->toDateString(); // Tanggal untuk mencari saldo awal
         // Log::info("startDate: " . $startDate . " endDate: " . $endDate . " previousDate: " . $previousDate);
-        Log::info('previousDate String: ' . $previousDate . ' endDate String: ' . $endDate->toDateString());
+        // Log::info('previousDate String: ' . $previousDate . ' endDate String: ' . $endDate->toDateString());
+        $sDate = Carbon::parse($endDate)->subDay();
+        Log::info('sDate: ' . $sDate . ', endDate: ' . $endDate);
+        $eDateTostring = $endDate->toDateString();
 
         $chartOfAccounts = ChartOfAccount::with('account')->get();
 
@@ -238,16 +241,16 @@ class Journal extends Model
         // 3. Pre-fetch total debit aktivitas untuk HANYA tanggal $endDate
         $dailyDebits = Journal::selectRaw('debt_code as account_id, SUM(amount) as total_amount')
             ->whereIn('debt_code', $allAccountIds)
-            ->whereBetween('date_issued', [$startDate, $endDate]) // HANYA AKTIVITAS HARI INI
+            ->whereDate('date_issued', $eDateTostring) // HANYA AKTIVITAS HARI INI
             ->groupBy('debt_code')
             ->pluck('total_amount', 'account_id')
             ->toArray();
-        Log::info('dailyDebits: ' . json_encode($dailyDebits));
+        // Log::info('dailyDebits: ' . json_encode($dailyDebits));
 
         // 4. Pre-fetch total credit aktivitas untuk HANYA tanggal $endDate
         $dailyCredits = Journal::selectRaw('cred_code as account_id, SUM(amount) as total_amount')
             ->whereIn('cred_code', $allAccountIds)
-            ->whereBetween('date_issued', [$startDate, $endDate]) // HANYA AKTIVITAS HARI INI
+            ->whereDate('date_issued', $eDateTostring) // HANYA AKTIVITAS HARI INI
             ->groupBy('cred_code')
             ->pluck('total_amount', 'account_id')
             ->toArray();
@@ -267,7 +270,7 @@ class Journal extends Model
             Log::info('missingDatesToUpdate updated successfully for date: ' . $date);
         }
 
-        Log::info('missingDatesToUpdate: ' . json_encode($missingDatesToUpdate));
+        // Log::info('missingDatesToUpdate: ' . json_encode($missingDatesToUpdate));
 
         if (!empty($missingDatesToUpdate)) {
             $previousDayBalances = AccountBalance::whereIn('chart_of_account_id', $allAccountIds)
