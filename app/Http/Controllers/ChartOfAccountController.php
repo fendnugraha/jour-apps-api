@@ -343,7 +343,11 @@ class ChartOfAccountController extends Controller
         ]);
     }
 
-    public function balanceSheetReport($startDate, $endDate)
+    /**
+     * @param string|null $startDate
+     * @param string|null $endDate
+     */
+    public function balanceSheetReport(?string $startDate, ?string $endDate)
     {
         $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->startOfDay();
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : now()->endOfDay();

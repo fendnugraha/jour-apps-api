@@ -246,6 +246,146 @@ class TransactionController extends Controller
 
         $warehouseId = auth()->user()->role->warehouse_id;
         $userId = auth()->user()->id;
+        $invoice = Journal::invoice_journal();
+
+        DB::beginTransaction();
+        try {
+            foreach ($request->cart as $item) {
+                // 1. Ambil data produk sekali saja untuk efisiensi
+                $product = Product::find($item['id']);
+                if (!$product) {
+                    continue; // Atau throw exception jika item tidak ditemukan
+                }
+
+                $isDeposit = ($item['category'] === 'Deposit' || $product->category === 'Deposit');
+
+                // 2. Hitung harga dan modal
+                $price = $item['price'] * $item['quantity'];
+                $cost = $isDeposit ? $item['cost'] : $product->cost;
+                $modal = $cost * $item['quantity'];
+
+                $description = $request->transaction_type == 'Sales'
+                    ? "Penjualan " . $item['name'] . " (Product ID:" . $item['id'] . ")"
+                    : "Pembelian " . $item['name'] . " (Product ID:" . $item['id'] . ")";
+
+                // Catat ke Jurnal Akuntansi
+                $this->_addTransactionToJournal(
+                    $request->dateIssued,
+                    $request->transaction_type,
+                    $invoice,
+                    $description,
+                    $price,
+                    $modal,
+                    $request->paymentAccountID,
+                    $userId,
+                    $warehouseId,
+                    $request->paymentMethod,
+                    $request->contactId
+                );
+
+                // 3. Logika penentuan kuantitas transaksi (Sales = Minus, Purchase = Plus)
+                // Jika deposit punya perlakuan khusus di kolom DB, sesuaikan di sini. 
+                // Standardnya: quantity tetap total item, bukan ditukar dengan cost.
+                $qtyTrx = $request->transaction_type == 'Sales' ? ($item['quantity'] * -1) : $item['quantity'];
+
+                Transaction::create([
+                    'date_issued' => $request->dateIssued ?? now(),
+                    'invoice' => $invoice,
+                    'product_id' => $item['id'],
+                    'quantity' => $qtyTrx,
+                    'price' => $request->transaction_type == 'Sales' ? $item['price'] : 0,
+                    'cost' => $request->transaction_type == 'Sales' ? $cost : $item['price'],
+                    'transaction_type' => $request->transaction_type,
+                    'contact_id' => $request->contactId ?? 1,
+                    'warehouse_id' => $warehouseId,
+                    'user_id' => $userId
+                ]);
+
+                // 4. Logika Update Stok (Hanya jalankan jika BUKAN Deposit)
+                if (!$isDeposit) {
+                    if ($request->transaction_type === 'Sales') {
+                        // Update master stock produk (langsung kurangi dari stok yang ada saat ini)
+                        $product->end_Stock = $product->stock - $item['quantity']; // pastikan nama kolom konsisten antara 'stock' atau 'end_Stock'
+                        $product->price = $item['price'];
+                        $product->save();
+
+                        // Update stok spesifik per Gudang
+                        $warehouseStock = WarehouseStock::where('warehouse_id', $warehouseId)
+                            ->where('product_id', $product->id)
+                            ->first();
+
+                        if ($warehouseStock) {
+                            // Langsung kurangi dengan kuantitas yang terjual saat ini
+                            $warehouseStock->current_stock -= $item['quantity'];
+                            $warehouseStock->save();
+                        } else {
+                            $warehouseStock = new WarehouseStock();
+                            $warehouseStock->warehouse_id = $warehouseId;
+                            $warehouseStock->product_id = $product->id;
+                            $warehouseStock->init_stock = 0;
+                            $warehouseStock->current_stock = -$item['quantity']; // Minus jika jualan duluan sebelum ada stock masuk
+                            $warehouseStock->save();
+                        }
+                    } else {
+                        // Jika Purchase untuk non-deposit
+                        Product::updateCostAndStock($item['id'], $item['quantity'], $warehouseId);
+                    }
+                } else {
+                    // Opsional: Jika 'Deposit' punya logika update saldo tersendiri, taruh di sini.
+                }
+            }
+
+            // 5. Pencatatan Fee Customer jika ada
+            if ($request->feeCustomer > 0) {
+                Journal::create([
+                    'invoice' => $invoice,
+                    'date_issued' => $request->dateIssued ?? now(),
+                    'debt_code' => 62,
+                    'cred_code' => 9,
+                    'amount' => $request->feeCustomer,
+                    'fee_amount' => 0,
+                    'trx_type' => 'Penjualan Barang',
+                    'description' => 'Fee Customer',
+                    'user_id' => $userId,
+                    'warehouse_id' => $warehouseId
+                ]);
+            }
+
+            $this->_recalculateAccountBalance($request->dateIssued);
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Penjualan barang berhasil disimpan, invoice: ' . $invoice,
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("Error di storeSalesWithDeposit: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create journal: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function storeSalesWithDepositx(Request $request)
+    {
+        $request->validate([
+            'cart' => 'required|array',
+            'transaction_type' => 'required|string',
+            'feeCustomer' => 'numeric',
+            'paymentAccountID' => 'required|exists:chart_of_accounts,id',
+        ]);
+
+        if ($request->transaction_type == 'Purchase' && $request->paymentMethod != 'cash') {
+            $request->validate([
+                'paymentMethod' => 'required|string',
+                'contactId' => 'required|exists:contacts,id',
+            ]);
+        }
+
+        $warehouseId = auth()->user()->role->warehouse_id;
+        $userId = auth()->user()->id;
 
         // $modal = $this->modal * $this->quantity;
 
