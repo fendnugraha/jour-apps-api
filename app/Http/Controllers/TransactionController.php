@@ -6,7 +6,6 @@ use Carbon\Carbon;
 use App\Models\Finance;
 use App\Models\Journal;
 use App\Models\Product;
-use App\Models\LogActivity;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
 use App\Models\AccountBalance;
@@ -137,7 +136,8 @@ class TransactionController extends Controller
 
             return response()->json([
                 'message' => 'Penjualan accesories berhasil disimpan, invoice: ' . $invoice,
-                'journal' => $journal
+                'success' => true
+                // 'journal' => $journal
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -228,7 +228,7 @@ class TransactionController extends Controller
         }
     }
 
-    public function storeSalesWithDeposit(Request $request)
+    public function storeSalesWithDepositx(Request $request)
     {
         $request->validate([
             'cart' => 'required|array',
@@ -251,31 +251,45 @@ class TransactionController extends Controller
         DB::beginTransaction();
         try {
             foreach ($request->cart as $item) {
-                // 1. Ambil data produk sekali saja untuk efisiensi
                 $product = Product::find($item['id']);
-                if (!$product) {
-                    continue; // Atau throw exception jika item tidak ditemukan
-                }
+                if (!$product) continue;
 
                 $isDeposit = ($item['category'] === 'Deposit' || $product->category === 'Deposit');
 
-                // 2. Hitung harga dan modal
-                $price = $item['price'] * $item['quantity'];
-                $cost = $isDeposit ? $item['cost'] : $product->cost;
-                $modal = $cost * $item['quantity'];
+                if ($isDeposit) {
+                    // --- LOGIKA UNTUK DEPOSIT (SALDO) ---
+                    // Jika penjualan deposit: Qty = nominal saldo (500.000), Price = 1
+                    // Total Pendapatan/Price total = nominal saldo * 1
+                    $priceTotal = $item['quantity'] * 1;
+
+                    // Modal diambil dari input 'cost' yang dikirim (misal: 495000)
+                    $modalTotal = $item['cost'];
+
+                    $qtyTrx = $request->transaction_type == 'Sales' ? ($item['quantity'] * -1) : $item['quantity'];
+                    $priceDb = 1;
+                    $costDb = $item['cost'] / $item['quantity']; // Menghitung modal per 1 rupiah saldo
+                } else {
+                    // --- LOGIKA UNTUK PRODUK FISIK BIASA ---
+                    $priceTotal = $item['price'] * $item['quantity'];
+                    $modalTotal = $product->cost * $item['quantity'];
+
+                    $qtyTrx = $request->transaction_type == 'Sales' ? ($item['quantity'] * -1) : $item['quantity'];
+                    $priceDb = $item['price'];
+                    $costDb = $product->cost;
+                }
 
                 $description = $request->transaction_type == 'Sales'
                     ? "Penjualan " . $item['name'] . " (Product ID:" . $item['id'] . ")"
                     : "Pembelian " . $item['name'] . " (Product ID:" . $item['id'] . ")";
 
-                // Catat ke Jurnal Akuntansi
+                // 1. Catat ke Jurnal Akuntansi
                 $this->_addTransactionToJournal(
                     $request->dateIssued,
                     $request->transaction_type,
                     $invoice,
                     $description,
-                    $price,
-                    $modal,
+                    $priceTotal,
+                    $modalTotal,
                     $request->paymentAccountID,
                     $userId,
                     $warehouseId,
@@ -283,55 +297,66 @@ class TransactionController extends Controller
                     $request->contactId
                 );
 
-                // 3. Logika penentuan kuantitas transaksi (Sales = Minus, Purchase = Plus)
-                // Jika deposit punya perlakuan khusus di kolom DB, sesuaikan di sini. 
-                // Standardnya: quantity tetap total item, bukan ditukar dengan cost.
-                $qtyTrx = $request->transaction_type == 'Sales' ? ($item['quantity'] * -1) : $item['quantity'];
-
+                // 2. Catat Riwayat Transaksi
                 Transaction::create([
                     'date_issued' => $request->dateIssued ?? now(),
                     'invoice' => $invoice,
                     'product_id' => $item['id'],
-                    'quantity' => $qtyTrx,
-                    'price' => $request->transaction_type == 'Sales' ? $item['price'] : 0,
-                    'cost' => $request->transaction_type == 'Sales' ? $cost : $item['price'],
+                    'quantity' => $qtyTrx,                 // Jika sales deposit, berkurang sebesar nominal saldo (e.g., -500000)
+                    'price' => $request->transaction_type == 'Sales' ? $priceDb : 0,
+                    'cost' => $request->transaction_type == 'Sales' ? $costDb : $item['price'],
                     'transaction_type' => $request->transaction_type,
                     'contact_id' => $request->contactId ?? 1,
                     'warehouse_id' => $warehouseId,
                     'user_id' => $userId
                 ]);
 
-                // 4. Logika Update Stok (Hanya jalankan jika BUKAN Deposit)
-                if (!$isDeposit) {
-                    if ($request->transaction_type === 'Sales') {
-                        // Update master stock produk (langsung kurangi dari stok yang ada saat ini)
-                        $product->end_Stock = $product->stock - $item['quantity']; // pastikan nama kolom konsisten antara 'stock' atau 'end_Stock'
+                // 3. Update Stok (BERLAKU UNTUK KEDUANYA, tapi caranya disesuaikan)
+                if ($request->transaction_type === 'Sales') {
+
+                    // Update Master Stock Produk
+                    // Menggunakan pengurangan langsung ($product->stock - $item['quantity']) 
+                    // BUKAN menggunakan sum('quantity') dari semua riwayat lama
+                    $product->end_Stock = $product->stock - $item['quantity'];
+                    if (!$isDeposit) {
                         $product->price = $item['price'];
-                        $product->save();
+                    }
+                    $product->save();
 
-                        // Update stok spesifik per Gudang
-                        $warehouseStock = WarehouseStock::where('warehouse_id', $warehouseId)
-                            ->where('product_id', $product->id)
-                            ->first();
+                    // Update Stok Gudang Spesifik (WarehouseStock)
+                    $warehouseStock = WarehouseStock::where('warehouse_id', $warehouseId)
+                        ->where('product_id', $product->id)
+                        ->first();
 
-                        if ($warehouseStock) {
-                            // Langsung kurangi dengan kuantitas yang terjual saat ini
-                            $warehouseStock->current_stock -= $item['quantity'];
-                            $warehouseStock->save();
-                        } else {
-                            $warehouseStock = new WarehouseStock();
-                            $warehouseStock->warehouse_id = $warehouseId;
-                            $warehouseStock->product_id = $product->id;
-                            $warehouseStock->init_stock = 0;
-                            $warehouseStock->current_stock = -$item['quantity']; // Minus jika jualan duluan sebelum ada stock masuk
-                            $warehouseStock->save();
-                        }
+                    if ($warehouseStock) {
+                        // Langsung kurangi dengan kuantitas (nominal saldo) yang terjual saat ini
+                        $warehouseStock->current_stock -= $item['quantity'];
+                        $warehouseStock->save();
                     } else {
-                        // Jika Purchase untuk non-deposit
-                        Product::updateCostAndStock($item['id'], $item['quantity'], $warehouseId);
+                        $warehouseStock = new WarehouseStock();
+                        $warehouseStock->warehouse_id = $warehouseId;
+                        $warehouseStock->product_id = $product->id;
+                        $warehouseStock->init_stock = 0;
+                        $warehouseStock->current_stock = -$item['quantity'];
+                        $warehouseStock->save();
                     }
                 } else {
-                    // Opsional: Jika 'Deposit' punya logika update saldo tersendiri, taruh di sini.
+                    // Jika Purchase (Pembelian/Top Up)
+                    if ($isDeposit) {
+                        // Top up Deposit: menambah stok utama & stok gudang langsung sebesar qty yang dibeli
+                        $product->end_Stock = $product->stock + $item['quantity'];
+                        $product->save();
+
+                        $warehouseStock = WarehouseStock::firstOrNew([
+                            'warehouse_id' => $warehouseId,
+                            'product_id' => $product->id
+                        ]);
+                        $warehouseStock->current_stock += $item['quantity'];
+                        $warehouseStock->save();
+                    } else {
+                        // Produk biasa pakai fungsi bawaan kamu
+                        Product::updateCostAndStock($item['id'], $item['quantity'], $warehouseId);
+                    }
                 }
             }
 
@@ -368,7 +393,7 @@ class TransactionController extends Controller
         }
     }
 
-    public function storeSalesWithDepositx(Request $request)
+    public function storeSalesWithDeposit(Request $request)
     {
         $request->validate([
             'cart' => 'required|array',
