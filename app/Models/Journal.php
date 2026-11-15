@@ -340,7 +340,7 @@ class Journal extends Model
         $targetDate = Carbon::parse($dateToUpdate)->endOfDay();
         Log::info('targetDate: ' . $targetDate);
         try {
-            $chartOfAccounts = ChartOfAccount::all();
+            $chartOfAccounts = ChartOfAccount::with('account')->get();
 
             foreach ($chartOfAccounts as $chartOfAccount) {
                 // Mengambil saldo awal dari properti model chartOfAccount->st_balance

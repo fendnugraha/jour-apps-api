@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Carbon\Carbon;
 use App\Models\Journal;
-use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use App\Models\AccountBalance;
 use App\Models\ChartOfAccount;
@@ -365,35 +364,38 @@ class ChartOfAccountController extends Controller
         };
 
         $calculateGrowthRate = function ($now, $last) {
-            return $last > 0 ? (($now - $last) / $last) * 100 : 0;
+            return $last != 0 ? (($now - $last) / abs($last)) * 100 : 0;
         };
 
         $journalCount = $journal->journalCount($startDate, $endDate);
         $profitLoss = $calculateProfitLoss($journalCount);
 
         $journalCountLastMonth = $journal->journalCount($startDate, $lastMonth);
-        // $journalCountLastMonth = $journal->journalCount($lastMonth, $lastMonth);
         $profitLossLastMonth = $calculateProfitLoss($journalCountLastMonth);
 
+        $currentAssets = $journalCount['assets']->flatten()->sum('balance');
+        $lastMonthAssets = $journalCountLastMonth['assets']->flatten()->sum('balance');
+
+        $currentLiabilities = $journalCount['liabilities']->flatten()->sum('balance');
+        $lastMonthLiabilities = $journalCountLastMonth['liabilities']->flatten()->sum('balance');
+
+        $equityBalance = $journalCount['equity']->flatten()->sum('balance');
         $lastMonthEquity = $journalCountLastMonth['equity']->flatten()->sum('balance') + $profitLossLastMonth;
-        Log::info('lastMonthEquity: ' . $lastMonthEquity);
-        Log::info('profitLossLastMonth: ' . $profitLossLastMonth);
-        $currentEquity = $journalCount['equity']->flatten()->sum('balance') + $profitLoss;
+        $currentEquity = $equityBalance + $profitLoss;
+
         $equityGrowthRate = $calculateGrowthRate($currentEquity, $lastMonthEquity);
         $equityGrowthAmount = $currentEquity - $lastMonthEquity;
 
-        $assetsGrowthRate = $calculateGrowthRate($journalCount['assets']->flatten()->sum('balance'), $journalCountLastMonth['assets']->flatten()->sum('balance'));
+        $assetsGrowthRate = $calculateGrowthRate($currentAssets, $lastMonthAssets);
+        $assetsGrowthAmount = $currentAssets - $lastMonthAssets;
 
-        $assetsGrowthAmount = $journalCount['assets']->flatten()->sum('balance') - $journalCountLastMonth['assets']->flatten()->sum('balance');
-
-        $liabilitiesGrowthAmount = $journalCount['liabilities']->flatten()->sum('balance') - $journalCountLastMonth['liabilities']->flatten()->sum('balance');
-
-        $liabilitiesGrowthRate = $calculateGrowthRate($journalCount['liabilities']->flatten()->sum('balance'), $journalCountLastMonth['liabilities']->flatten()->sum('balance'));
+        $liabilitiesGrowthAmount = $currentLiabilities - $lastMonthLiabilities;
+        $liabilitiesGrowthRate = $calculateGrowthRate($currentLiabilities, $lastMonthLiabilities);
 
         $balanceSheet = [
             'accountBalances' => $journalCount,
             'assets' => [
-                'total' => $journalCount['assets']->flatten()->sum('balance'),
+                'total' => $currentAssets,
                 'accounts' => $journalCount['assets']->map(function ($a) {
                     return [
                         'acc_name' => $a->first()->account->name,
@@ -412,7 +414,7 @@ class ChartOfAccountController extends Controller
                     ->toArray()
             ],
             'liabilities' => [
-                'total' => $journalCount['liabilities']->flatten()->sum('balance'),
+                'total' => $currentLiabilities,
                 'accounts' => $journalCount['liabilities']->map(function ($a) {
                     return [
                         'acc_name' => $a->first()->account->name,
@@ -431,7 +433,8 @@ class ChartOfAccountController extends Controller
                     ->toArray()
             ],
             'equity' => [
-                'total' => $journalCount['equity']->flatten()->sum('balance'),
+                'total' => $equityBalance,
+                'total_with_profitloss' => $currentEquity,
                 'accounts' => $journalCount['equity']->map(function ($a) {
                     return [
                         'acc_name' => $a->first()->account->name,
